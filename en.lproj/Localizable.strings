@@ -1,0 +1,25 @@
+
+"Generate Report (JSON)" = "Generate Report (JSON)";
+"Saved to: " = "Saved to: ";
+"Report saved" = "Report saved";
+"OK" = "OK";
+"MacEnvDoctor – One-click Check & Optional Install" = "MacEnvDoctor – One-click Check & Optional Install";
+"Check/Install: Xcode, CLT, iTerm2, oh-my-bash, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba" = "Check/Install: Xcode, CLT, iTerm2, oh-my-bash, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba";
+"Re-Check" = "Re-Check"; "Install Missing" = "Install Missing"; "Auto Confirm" = "Auto Confirm"; "Open Xcode in App Store" = "Open Xcode in App Store";
+"Check" = "Check"; "Install / Fix" = "Install / Fix"; "Skip" = "Skip"; "Xcode Command Line Tools" = "Xcode Command Line Tools";
+"Ready " = "Ready "; "Check Result: " = "Check Result: "; "Installed" = "Installed"; "Not Ready" = "Not Ready";
+"asdf (version manager)" = "asdf (version manager)"; "Node.js (via asdf)" = "Node.js (via asdf)"; "Go (via asdf)" = "Go (via asdf)"; "Java (via asdf)" = "Java (via asdf)";
+"pnpm (via asdf)" = "pnpm (via asdf)"; "yarn (via asdf)" = "yarn (via asdf)"; "Maven (via asdf)" = "Maven (via asdf)"; "Gradle (via asdf)" = "Gradle (via asdf)";
+"Python (via asdf)" = "Python (via asdf)"; "Rust (via asdf)" = "Rust (via asdf)"; "jabba (Java manager)" = "jabba (Java manager)";
+"Version:" = "Version:"; "e.g. 20.14.0 / latest / latest:lts / 1.21 / temurin-17" = "e.g. 20.14.0 / latest / latest:lts / 1.21 / temurin-17";
+"Install Ver" = "Install Ver"; "Set Default" = "Set Default"; "Latest" = "Latest"; "List" = "List";
+"Environment Profiles (Version Matrix)" = "Environment Profiles (Version Matrix)"; "Select Profile" = "Select Profile"; "Apply Profile" = "Apply Profile"; "Export Sample" = "Export Sample"; "Reload" = "Reload"; "Profiles file: " = "Profiles file: "; "None" = "None";
+"Profile Groups" = "Profile Groups"; "Select Group" = "Select Group"; "Apply Group" = "Apply Group"; "Groups file: " = "Groups file: ";
+"Open Editor" = "Open Editor";
+"Profile Visual Editor" = "Profile Visual Editor"; "Close" = "Close"; "Profiles" = "Profiles"; "Add" = "Add"; "Duplicate" = "Duplicate"; "Delete" = "Delete";
+"Import..." = "Import..."; "Export..." = "Export..."; "Export Sample" = "Export Sample"; "Profile Details" = "Profile Details"; "Profile Name" = "Profile Name";
+"Plugin" = "Plugin"; "Version" = "Version"; "Remove" = "Remove"; "Add Row" = "Add Row"; "Save" = "Save"; "Select a profile on the left to edit." = "Select a profile on the left to edit.";
+"Groups" = "Groups"; "Group Details" = "Group Details"; "Group Name" = "Group Name"; "Included Profiles:" = "Included Profiles:"; "Select a group on the left to edit." = "Select a group on the left to edit.";
+"Team Sync" = "Team Sync"; "Team Sync (Folder-based)" = "Team Sync (Folder-based)"; "Sync Folder:" = "Sync Folder:"; "Not set" = "Not set"; "Choose..." = "Choose...";
+"Pull from Folder" = "Pull from Folder"; "Push to Folder" = "Push to Folder"; "Open Local Files" = "Open Local Files";
+"Tip: Put the sync folder inside Dropbox/Google Drive/git working tree to share with teammates." = "Tip: Put the sync folder inside Dropbox/Google Drive/git working tree to share with teammates.";

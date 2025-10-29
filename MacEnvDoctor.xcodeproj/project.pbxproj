@@ -1,0 +1,285 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1 /* Assets.xcassets */; };
+		A2 /* MacEnvDoctorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2 /* MacEnvDoctorApp.swift */; };
+		A3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3 /* ContentView.swift */; };
+		A4 /* TaskModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4 /* TaskModel.swift */; };
+		A5 /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5 /* Shell.swift */; };
+		A6 /* Detectors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6 /* Detectors.swift */; };
+		A7 /* Installers.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7 /* Installers.swift */; };
+		A8 /* Report.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8 /* Report.swift */; };
+		A9 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = L0 /* Localizable.strings */; };
+		AA /* Profiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9 /* Profiles.swift */; };
+		AB /* ProfileEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA /* ProfileEditorView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B2 /* MacEnvDoctorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacEnvDoctorApp.swift; sourceTree = "<group>"; };
+		B3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B4 /* TaskModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskModel.swift; sourceTree = "<group>"; };
+		B5 /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shell.swift; sourceTree = "<group>"; };
+		B6 /* Detectors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detectors.swift; sourceTree = "<group>"; };
+		B7 /* Installers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Installers.swift; sourceTree = "<group>"; };
+		B8 /* Report.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Report.swift; sourceTree = "<group>"; };
+		B9 /* Profiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Profiles.swift; sourceTree = "<group>"; };
+		BA /* ProfileEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileEditorView.swift; sourceTree = "<group>"; };
+		BL /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		L1 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		L2 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		L3 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
+		P0 /* MacEnvDoctor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = MacEnvDoctor.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G0 = {
+			isa = PBXGroup;
+			children = (
+				G1 /* MacEnvDoctor */,
+				G2 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G1 /* MacEnvDoctor */ = {
+			isa = PBXGroup;
+			children = (
+				B2 /* MacEnvDoctorApp.swift */,
+				B3 /* ContentView.swift */,
+				B4 /* TaskModel.swift */,
+				B5 /* Shell.swift */,
+				B6 /* Detectors.swift */,
+				B7 /* Installers.swift */,
+				B9 /* Profiles.swift */,
+				BA /* ProfileEditorView.swift */,
+				B8 /* Report.swift */,
+				B1 /* Assets.xcassets */,
+				LG /* Localizations */,
+				BL /* Info.plist */,
+			);
+			path = MacEnvDoctor;
+			sourceTree = "<group>";
+		};
+		G2 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				P0 /* MacEnvDoctor.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		LG /* Localizations */ = {
+			isa = PBXGroup;
+			children = (
+				L0 /* Localizable.strings */,
+			);
+			name = Localizations;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		T0 /* MacEnvDoctor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C1 /* Build configuration list for PBXNativeTarget "MacEnvDoctor" */;
+			buildPhases = (
+				S0 /* Sources */,
+				R0 /* Resources */,
+				F0 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MacEnvDoctor;
+			productName = MacEnvDoctor;
+			productReference = P0 /* MacEnvDoctor.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		PRJ /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = C0 /* Build configuration list for PBXProject "MacEnvDoctor" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				"zh-Hans",
+				ja,
+				Base,
+			);
+			mainGroup = G0;
+			productRefGroup = G2 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				T0 /* MacEnvDoctor */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		R0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1 /* Assets.xcassets in Resources */,
+				A9 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		S0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A2 /* MacEnvDoctorApp.swift in Sources */,
+				A3 /* ContentView.swift in Sources */,
+				A4 /* TaskModel.swift in Sources */,
+				A5 /* Shell.swift in Sources */,
+				A6 /* Detectors.swift in Sources */,
+				A7 /* Installers.swift in Sources */,
+				A8 /* Report.swift in Sources */,
+				AA /* Profiles.swift in Sources */,
+				AB /* ProfileEditorView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		L0 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				L1 /* en */,
+				L2 /* zh-Hans */,
+				L3 /* ja */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		D0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 4;
+				GENERATE_INFOPLIST_FILE = NO;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		D1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 4;
+				GENERATE_INFOPLIST_FILE = NO;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		D2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = X855Y85A4V;
+				INFOPLIST_FILE = MacEnvDoctor/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.MacEnvDoctor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		D3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = X855Y85A4V;
+				INFOPLIST_FILE = MacEnvDoctor/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.MacEnvDoctor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C0 /* Build configuration list for PBXProject "MacEnvDoctor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D0 /* Debug */,
+				D1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C1 /* Build configuration list for PBXNativeTarget "MacEnvDoctor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D2 /* Debug */,
+				D3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = PRJ /* Project object */;
+}
