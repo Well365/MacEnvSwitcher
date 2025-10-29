@@ -62,7 +62,7 @@ struct ContentView: View {
                 Button(tr("Apply Profile")) { vm.applySelectedProfile() }
                 Button(tr("Export Sample")) { vm.exportProfilesSample() }
                 Button(tr("Reload")) { vm.reloadProfiles() }
-                Text(tr("Profiles file: ")) + Text("~/.mac-bootstrap/profiles.json").font(.caption).foregroundStyle(.secondary)
+                Text(tr("Profiles file: ")) + Text("~/.mac-bootstrap/profiles.json").font(.caption).foregroundColor(.secondary)
             }
             if let p = vm.selectedProfile {
                 ScrollView {
@@ -90,7 +90,7 @@ struct ContentView: View {
                 Button(tr("Apply Group")) { vm.applySelectedGroup() }
                 Button(tr("Export Sample")) { vm.exportGroupsSample() }
                 Button(tr("Reload")) { vm.reloadGroups() }
-                Text(tr("Groups file: ")) + Text("~/.mac-bootstrap/groups.json").font(.caption).foregroundStyle(.secondary)
+                Text(tr("Groups file: ")) + Text("~/.mac-bootstrap/groups.json").font(.caption).foregroundColor(.secondary)
             }
             if let g = vm.selectedGroup {
                 ScrollView {
@@ -120,7 +120,7 @@ struct ContentView: View {
                             onSetDefault: { ver in vm.setDefault(t, version: ver) }
                     )
                     .padding(12)
-                    .background(.background.secondary)
+                    .background(Color.secondary.opacity(0.1))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             }

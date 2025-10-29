@@ -77,8 +77,8 @@ struct ProfileEditorView: View {
                     TextField(tr("Profile Name"), text: Binding(get: { p.name }, set: { p.name = $0; updateProfile(p) }))
                         .textFieldStyle(.roundedBorder).frame(maxWidth: 420)
                     HStack {
-                        Text(tr("Plugin")).frame(width: 160, alignment: .leading).bold()
-                        Text(tr("Version")).frame(width: 240, alignment: .leading).bold()
+                        Text(tr("Plugin")).frame(width: 160, alignment: .leading).font(.system(size: 13, weight: .bold))
+                        Text(tr("Version")).frame(width: 240, alignment: .leading).font(.system(size: 13, weight: .bold))
                         Spacer()
                     }
                     ScrollView {

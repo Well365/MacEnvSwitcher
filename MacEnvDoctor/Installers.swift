@@ -74,7 +74,7 @@ final class Installers {
             let r = Shell.run("brew install asdf")
             log += r.out + r.err + "\n"
         }
-        _ = Shell.run('for rc in $HOME/.zshrc $HOME/.bash_profile; do touch "$rc"; grep -qxF \'. \"$(brew --prefix asdf)\"/libexec/asdf.sh\' "$rc" || echo \'. \"$(brew --prefix asdf)\"/libexec/asdf.sh\' >> "$rc"; done')
+        _ = Shell.run("for rc in $HOME/.zshrc $HOME/.bash_profile; do touch \"$rc\"; grep -qxF \". \\\"$(brew --prefix asdf)\\\"/libexec/asdf.sh\" \"$rc\" || echo \". \\\"$(brew --prefix asdf)\\\"/libexec/asdf.sh\" >> \"$rc\"; done")
         return (true, log + "asdf ensured.", tr("Restart terminal to load asdf if command not found."))
     }
 
@@ -225,3 +225,4 @@ final class Installers {
         return (r.code == 0, r.out + r.err, tr("jabba manages Java separately; prefer asdf-java for unified profiles."))
     }
 }
+
