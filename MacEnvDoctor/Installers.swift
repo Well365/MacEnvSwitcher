@@ -208,13 +208,174 @@ final class Installers {
 
     // Apply a profile (versions map)
     func apply(profile: EnvironmentProfile) -> (Bool, String, String?) {
-        var logs = "[Profile] \\(profile.name)\\n"
+        var logs = "[Profile] \(profile.name)\n"
+        
+        // First install/switch language versions
         for (plugin, version) in profile.versions {
             ensureAsdfAndPlugin(plugin)
             let r = Shell.run("asdf install \(plugin) \"\(version)\" && asdf global \(plugin) \"\(version)\" && asdf reshim \(plugin)")
-            logs += "[\(plugin)] \(version) -> code=\(r.code)\\n" + r.out + r.err + "\\n"
+            logs += "[\(plugin)] \(version) -> code=\(r.code)\n" + r.out + r.err + "\n"
         }
-        return (true, logs, tr("Profile applied. Reopen terminal for shells to pick up PATH changes if needed."))
+        
+        // Then setup virtual environments
+        for (language, venv) in profile.virtualEnvs {
+            let venvResult = setupVirtualEnvironment(language: language, venv: venv)
+            logs += "[VirtualEnv] \(language) -> \(venv.name)\n" + venvResult.1 + "\n"
+        }
+        
+        // Set environment variables if any
+        if !profile.environmentVars.isEmpty {
+            logs += setupEnvironmentVariables(profile.environmentVars)
+        }
+        
+        // Mark profile as active
+        ProfilesStore.setActiveProfile(profile.name)
+        
+        return (true, logs, tr("Environment '\(profile.name)' activated. Reopen terminal for shells to pick up PATH changes if needed."))
+    }
+    
+    // Setup virtual environments
+    private func setupVirtualEnvironment(language: String, venv: VirtualEnvironment) -> (Bool, String) {
+        var logs = ""
+        
+        switch venv.type {
+        case .pythonVenv:
+            if let pythonVer = venv.pythonVersion {
+                // Ensure Python version is installed
+                ensureAsdfAndPlugin("python")
+                let installPython = Shell.run("asdf install python \"\(pythonVer)\" && asdf global python \"\(pythonVer)\"")
+                logs += "Python \(pythonVer): \(installPython.out)\n"
+                
+                // Create/activate virtual environment
+                let venvPath = "~/.virtualenvs/\(venv.name)"
+                let createVenv = Shell.run("python -m venv \(venvPath) || true")
+                logs += "Create venv '\(venv.name)': \(createVenv.out)\n"
+                
+                // Add to shell profile for auto-activation
+                let activateScript = "alias activate-\(venv.name)='source \(venvPath)/bin/activate'"
+                let addToProfile = Shell.run("echo '\(activateScript)' >> ~/.zprofile")
+                logs += "Added alias: activate-\(venv.name)\n"
+            }
+            
+        case .pythonConda:
+            if let pythonVer = venv.pythonVersion {
+                // Check if conda is available
+                let condaCheck = Shell.run("which conda || echo 'NOT_FOUND'")
+                if condaCheck.out.contains("NOT_FOUND") {
+                    // Install conda via homebrew
+                    let installConda = Shell.run("brew install --cask miniconda")
+                    logs += "Install Miniconda: \(installConda.out)\n"
+                    // Initialize conda
+                    let initConda = Shell.run("conda init zsh && conda init bash")
+                    logs += "Initialize conda: \(initConda.out)\n"
+                }
+                
+                // Create conda environment
+                let createEnv = Shell.run("conda create -n \(venv.name) python=\(pythonVer) -y || conda env update -n \(venv.name) --file /dev/null")
+                logs += "Create conda env '\(venv.name)': \(createEnv.out)\n"
+                
+                // Add activation alias
+                let activateScript = "alias activate-\(venv.name)='conda activate \(venv.name)'"
+                let addToProfile = Shell.run("echo '\(activateScript)' >> ~/.zprofile")
+                logs += "Added alias: activate-\(venv.name)\n"
+            }
+            
+        case .rubyGemset:
+            if let gemset = venv.gemset {
+                // Setup RVM if not available
+                let rvmCheck = Shell.run("which rvm || echo 'NOT_FOUND'")
+                if rvmCheck.out.contains("NOT_FOUND") {
+                    let installRvm = Shell.run("curl -sSL https://get.rvm.io | bash -s stable")
+                    logs += "Install RVM: \(installRvm.out)\n"
+                }
+                
+                // Create and use gemset
+                let createGemset = Shell.run("rvm gemset create \(gemset) && rvm gemset use \(gemset)")
+                logs += "Create Ruby gemset '\(gemset)': \(createGemset.out)\n"
+                
+                // Add to shell profile
+                let gemsetScript = "alias use-\(venv.name)='rvm gemset use \(gemset)'"
+                let addToProfile = Shell.run("echo '\(gemsetScript)' >> ~/.zprofile")
+                logs += "Added alias: use-\(venv.name)\n"
+            }
+            
+        case .nodeNvm:
+            if let nodeVer = venv.nodeVersion {
+                // Setup NVM if not available
+                let nvmCheck = Shell.run("which nvm || echo 'NOT_FOUND'")
+                if nvmCheck.out.contains("NOT_FOUND") {
+                    let installNvm = Shell.run("curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash")
+                    logs += "Install NVM: \(installNvm.out)\n"
+                }
+                
+                // Install and use Node version
+                let useNode = Shell.run("nvm install \(nodeVer) && nvm use \(nodeVer)")
+                logs += "Setup Node.js \(nodeVer): \(useNode.out)\n"
+                
+                // Add alias for this environment
+                let nodeScript = "alias node-\(venv.name)='nvm use \(nodeVer)'"
+                let addToProfile = Shell.run("echo '\(nodeScript)' >> ~/.zprofile")
+                logs += "Added alias: node-\(venv.name)\n"
+            }
+            
+        case .rustToolchain:
+            // Setup Rust toolchain
+            let rustupCheck = Shell.run("which rustup || echo 'NOT_FOUND'")
+            if rustupCheck.out.contains("NOT_FOUND") {
+                let installRustup = Shell.run("curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y")
+                logs += "Install Rustup: \(installRustup.out)\n"
+            }
+            
+            let installToolchain = Shell.run("rustup toolchain install \(venv.name) && rustup default \(venv.name)")
+            logs += "Setup Rust toolchain '\(venv.name)': \(installToolchain.out)\n"
+            
+        case .custom:
+            logs += "Custom virtual environment setup not implemented for '\(venv.name)'\n"
+        }
+        
+        return (true, logs)
+    }
+    
+    // Setup environment variables
+    private func setupEnvironmentVariables(_ envVars: [String: String]) -> String {
+        var logs = "[Environment Variables]\n"
+        
+        for (key, value) in envVars {
+            let exportCmd = "export \(key)=\"\(value)\""
+            let addToProfile = Shell.run("echo '\(exportCmd)' >> ~/.zprofile")
+            logs += "Set \(key)=\(value)\n"
+        }
+        
+        return logs
+    }
+    
+    // Switch environment
+    func switchToEnvironment(_ profile: EnvironmentProfile, completion: @escaping (Bool, String, String?) -> Void) {
+        DispatchQueue.global().async {
+            // Deactivate current environment first
+            ProfilesStore.deactivateAllProfiles()
+            
+            // Apply the new environment
+            let result = self.apply(profile: profile)
+            
+            DispatchQueue.main.async {
+                completion(result.0, result.1, result.2)
+            }
+        }
+    }
+    
+    // Deactivate current environment
+    func deactivateCurrentEnvironment() -> (Bool, String, String?) {
+        ProfilesStore.deactivateAllProfiles()
+        
+        // Reset to system defaults (could be enhanced to save/restore previous state)
+        var logs = "[Deactivate Environment]\n"
+        
+        // Reset asdf to system versions or latest
+        let resetAsdf = Shell.run("asdf global nodejs system; asdf global python system; asdf global ruby system; asdf global java system")
+        logs += "Reset asdf to system versions: \(resetAsdf.out)\n"
+        
+        return (true, logs, tr("Environment deactivated. System defaults restored."))
     }
 
     // jabba optional

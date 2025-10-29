@@ -5,7 +5,42 @@ import AppKit
 struct EnvironmentProfile: Codable, Identifiable, Hashable {
     var id: String { name }
     var name: String
+    var description: String = ""
     var versions: [String:String] // plugin -> version
+    var virtualEnvs: [String:VirtualEnvironment] = [:] // language -> virtual env config
+    var environmentVars: [String:String] = [:] // custom environment variables
+    var isActive: Bool = false // track if this is the currently active environment
+    var createdAt: Date = Date()
+    var lastUsed: Date? = nil
+}
+
+struct VirtualEnvironment: Codable, Hashable {
+    var type: VirtualEnvType
+    var name: String
+    var path: String? = nil // custom path if needed
+    var pythonVersion: String? = nil // for Python virtual envs
+    var gemset: String? = nil // for Ruby gemsets
+    var nodeVersion: String? = nil // for Node.js environments
+}
+
+enum VirtualEnvType: String, Codable, CaseIterable {
+    case pythonVenv = "python-venv"
+    case pythonConda = "python-conda"
+    case rubyGemset = "ruby-gemset"
+    case nodeNvm = "node-nvm"
+    case rustToolchain = "rust-toolchain"
+    case custom = "custom"
+    
+    var displayName: String {
+        switch self {
+        case .pythonVenv: return "Python venv"
+        case .pythonConda: return "Python Conda"
+        case .rubyGemset: return "Ruby Gemset"
+        case .nodeNvm: return "Node.js NVM"
+        case .rustToolchain: return "Rust Toolchain"
+        case .custom: return "Custom"
+        }
+    }
 }
 
 struct ProfileGroup: Codable, Identifiable, Hashable {
@@ -23,45 +58,80 @@ struct ProfilesStore {
     // Built-ins
     static func builtinProfiles() -> [EnvironmentProfile] {
         return [
-            .init(name: "Android Dev", versions: [
-                "java": "latest:temurin-17",
-                "gradle": "latest",
-                "maven": "latest",
-                "nodejs": "latest:lts",
-                "yarn": "latest",
-                "pnpm": "latest",
-                "python": "latest"
-            ]),
-            .init(name: "Go Dev", versions: [
-                "golang": "latest",
-                "nodejs": "latest:lts",
-                "yarn": "latest"
-            ]),
-            .init(name: "Fullstack Node", versions: [
-                "nodejs": "latest:lts",
-                "pnpm": "latest",
-                "yarn": "latest",
-                "python": "latest",
-                "java": "latest:temurin-21",
-                "maven": "latest",
-                "gradle": "latest"
-            ]),
-            .init(name: "Signer Node", versions: [
-                "nodejs": "latest:lts",
-                "pnpm": "latest",
-                "python": "latest",
-                "java": "latest:temurin-17",
-                "maven": "latest",
-                "gradle": "8.9"
-            ])
+            .init(
+                name: "iOS Development", 
+                description: "Environment for iOS development with latest stable versions",
+                versions: [
+                    "ruby": "3.2.0",
+                    "python": "3.11.0",
+                    "nodejs": "18.17.0",
+                    "java": "latest:temurin-17"
+                ],
+                virtualEnvs: [
+                    "python": VirtualEnvironment(type: .pythonVenv, name: "ios-dev", pythonVersion: "3.11.0"),
+                    "ruby": VirtualEnvironment(type: .rubyGemset, name: "ios-tools", gemset: "ios-dev")
+                ]
+            ),
+            .init(
+                name: "Android Development",
+                description: "Environment for Android development",
+                versions: [
+                    "java": "latest:temurin-17",
+                    "gradle": "8.4",
+                    "maven": "3.9.4",
+                    "nodejs": "18.17.0",
+                    "python": "3.11.0"
+                ],
+                virtualEnvs: [
+                    "python": VirtualEnvironment(type: .pythonVenv, name: "android-dev", pythonVersion: "3.11.0")
+                ]
+            ),
+            .init(
+                name: "Frontend Development",
+                description: "Modern frontend development environment",
+                versions: [
+                    "nodejs": "20.9.0",
+                    "yarn": "latest",
+                    "pnpm": "latest",
+                    "python": "3.11.0"
+                ],
+                virtualEnvs: [
+                    "nodejs": VirtualEnvironment(type: .nodeNvm, name: "frontend", nodeVersion: "20.9.0")
+                ]
+            ),
+            .init(
+                name: "Data Science",
+                description: "Python data science environment with conda",
+                versions: [
+                    "python": "3.11.0",
+                    "nodejs": "18.17.0"
+                ],
+                virtualEnvs: [
+                    "python": VirtualEnvironment(type: .pythonConda, name: "datascience", pythonVersion: "3.11.0")
+                ]
+            ),
+            .init(
+                name: "Legacy Support",
+                description: "Environment for legacy projects",
+                versions: [
+                    "ruby": "2.7.8",
+                    "python": "3.8.17",
+                    "nodejs": "16.20.2",
+                    "java": "latest:temurin-11"
+                ],
+                virtualEnvs: [
+                    "python": VirtualEnvironment(type: .pythonVenv, name: "legacy", pythonVersion: "3.8.17"),
+                    "ruby": VirtualEnvironment(type: .rubyGemset, name: "legacy-tools", gemset: "legacy")
+                ]
+            )
         ]
     }
     static func builtinGroups() -> [ProfileGroup] {
         return [
-            .init(name: "Android Team", profileNames: ["Android Dev"]),
-            .init(name: "Go Team", profileNames: ["Go Dev"]),
-            .init(name: "Fullstack Team", profileNames: ["Fullstack Node"]),
-            .init(name: "Signer/矿工节点", profileNames: ["Signer Node"])
+            .init(name: "Mobile Development", profileNames: ["iOS Development", "Android Development"]),
+            .init(name: "Web Development", profileNames: ["Frontend Development"]),
+            .init(name: "Data & Analytics", profileNames: ["Data Science"]),
+            .init(name: "Legacy Projects", profileNames: ["Legacy Support"])
         ]
     }
 
@@ -167,6 +237,54 @@ struct ProfilesStore {
         var dict = Dictionary(uniqueKeysWithValues: base.map{($0.name,$0)})
         for g in incoming { dict[g.name] = g }
         return Array(dict.values).sorted{ $0.name < $1.name }
+    }
+
+    // Environment Management
+    static func getCurrentActiveProfile() -> EnvironmentProfile? {
+        let profiles = loadProfiles()
+        return profiles.first { $0.isActive }
+    }
+    
+    static func setActiveProfile(_ profileName: String) {
+        var profiles = loadProfiles()
+        for i in profiles.indices {
+            profiles[i].isActive = (profiles[i].name == profileName)
+            if profiles[i].isActive {
+                profiles[i].lastUsed = Date()
+            }
+        }
+        saveProfiles(profiles)
+    }
+    
+    static func deactivateAllProfiles() {
+        var profiles = loadProfiles()
+        for i in profiles.indices {
+            profiles[i].isActive = false
+        }
+        saveProfiles(profiles)
+    }
+    
+    static func addProfile(_ profile: EnvironmentProfile) {
+        var profiles = loadProfiles()
+        // Remove existing profile with same name
+        profiles.removeAll { $0.name == profile.name }
+        profiles.append(profile)
+        profiles.sort { $0.name < $1.name }
+        saveProfiles(profiles)
+    }
+    
+    static func deleteProfile(_ profileName: String) {
+        var profiles = loadProfiles()
+        profiles.removeAll { $0.name == profileName }
+        saveProfiles(profiles)
+    }
+    
+    static func updateProfile(_ profile: EnvironmentProfile) {
+        var profiles = loadProfiles()
+        if let index = profiles.firstIndex(where: { $0.name == profile.name }) {
+            profiles[index] = profile
+            saveProfiles(profiles)
+        }
     }
 
     // Pull/Push

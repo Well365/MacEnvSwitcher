@@ -64,6 +64,8 @@ final class BootstrapViewModel: ObservableObject {
     @Published var selectedProfile: EnvironmentProfile? = nil
     @Published var selectedGroup: ProfileGroup? = nil
     @Published var showEditor: Bool = false
+    @Published var showEnvironmentManager: Bool = false
+    @Published var currentActiveProfile: EnvironmentProfile? = ProfilesStore.getCurrentActiveProfile()
 
     private let detectors = Detectors()
     private let installers = Installers()
@@ -144,7 +146,10 @@ final class BootstrapViewModel: ObservableObject {
     }
 
     // MARK: - Profiles & Groups helpers
-    func reloadProfiles() { profiles = ProfilesStore.loadProfiles() }
+    func reloadProfiles() { 
+        profiles = ProfilesStore.loadProfiles()
+        currentActiveProfile = ProfilesStore.getCurrentActiveProfile()
+    }
     func exportProfilesSample() { ProfilesStore.saveProfiles(ProfilesStore.builtinProfiles()); reloadProfiles() }
     func reloadGroups() { groups = ProfilesStore.loadGroups() }
     func exportGroupsSample() { ProfilesStore.saveGroups(ProfilesStore.builtinGroups()); reloadGroups() }
@@ -156,6 +161,7 @@ final class BootstrapViewModel: ObservableObject {
             DispatchQueue.main.async {
                 self.state[.asdf]?.log = (self.state[.asdf]?.log ?? "") + "\\n" + log
                 self.state[.asdf]?.tip = tip
+                self.currentActiveProfile = ProfilesStore.getCurrentActiveProfile()
                 self.runFullCheck()
             }
         }
@@ -172,8 +178,44 @@ final class BootstrapViewModel: ObservableObject {
             DispatchQueue.main.async {
                 self.state[.asdf]?.log = (self.state[.asdf]?.log ?? "") + "\\n[Group] " + g.name + "\\n" + log
                 self.state[.asdf]?.tip = tip
+                self.currentActiveProfile = ProfilesStore.getCurrentActiveProfile()
                 self.runFullCheck()
             }
         }
+    }
+    
+    // MARK: - Environment Management
+    func switchToEnvironment(_ profile: EnvironmentProfile) {
+        installers.switchToEnvironment(profile) { [weak self] ok, log, tip in
+            DispatchQueue.main.async {
+                self?.state[.asdf]?.log = (self?.state[.asdf]?.log ?? "") + "\n[Switch Environment]\n" + log
+                self?.state[.asdf]?.tip = tip
+                self?.currentActiveProfile = ProfilesStore.getCurrentActiveProfile()
+                self?.runFullCheck()
+            }
+        }
+    }
+    
+    func deactivateCurrentEnvironment() {
+        let (ok, log, tip) = installers.deactivateCurrentEnvironment()
+        state[.asdf]?.log = (state[.asdf]?.log ?? "") + "\n" + log
+        state[.asdf]?.tip = tip
+        currentActiveProfile = nil
+        runFullCheck()
+    }
+    
+    func addEnvironment(_ profile: EnvironmentProfile) {
+        ProfilesStore.addProfile(profile)
+        reloadProfiles()
+    }
+    
+    func deleteEnvironment(_ profileName: String) {
+        ProfilesStore.deleteProfile(profileName)
+        reloadProfiles()
+    }
+    
+    func updateEnvironment(_ profile: EnvironmentProfile) {
+        ProfilesStore.updateProfile(profile)
+        reloadProfiles()
     }
 }

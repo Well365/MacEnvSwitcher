@@ -21,6 +21,10 @@ struct ContentView: View {
         .sheet(isPresented: $vm.showEditor) {
             ProfileEditorView(isPresented: $vm.showEditor)
         }
+        .sheet(isPresented: $vm.showEnvironmentManager) {
+            EnvironmentManagerView(isPresented: $vm.showEnvironmentManager, vm: vm)
+                .frame(minWidth: 800, minHeight: 600)
+        }
         .alert(tr("Report saved"), isPresented: $showReport) {
             Button(tr("OK"), role: .cancel) {}
         } message: { Text(vm.lastReportPath ?? "") }
@@ -32,6 +36,40 @@ struct ContentView: View {
             Text(tr("MacEnvDoctor – One-click Check & Optional Install")).font(.title2).bold()
             Text(tr("Check/Install: Xcode, CLT, iTerm2, oh-my-bash, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba"))
                 .font(.subheadline).foregroundStyle(.secondary)
+            
+            // Current environment indicator
+            if let current = vm.currentActiveProfile {
+                HStack {
+                    Image(systemName: "checkmark.seal.fill").foregroundColor(.green)
+                    Text(tr("Active Environment: \(current.name)"))
+                        .font(.caption)
+                        .foregroundColor(.green)
+                        .bold()
+                    Spacer()
+                    Button(tr("Switch")) {
+                        vm.showEnvironmentManager = true
+                    }
+                    .font(.caption)
+                    .buttonStyle(.borderless)
+                    .foregroundColor(.blue)
+                }
+                .padding(.vertical, 4)
+            } else {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle").foregroundColor(.orange)
+                    Text(tr("No active environment - using system defaults"))
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                    Spacer()
+                    Button(tr("Manage")) {
+                        vm.showEnvironmentManager = true
+                    }
+                    .font(.caption)
+                    .buttonStyle(.borderless)
+                    .foregroundColor(.blue)
+                }
+                .padding(.vertical, 4)
+            }
         }
     }
 
@@ -41,6 +79,8 @@ struct ContentView: View {
             Button(tr("Install Missing")) { vm.installMissing(autoYes: autoYes) }
             Toggle(tr("Auto Confirm"), isOn: $autoYes).toggleStyle(.switch)
             Spacer()
+            Button(tr("Environment Manager")) { vm.showEnvironmentManager = true }
+                .buttonStyle(.borderedProminent)
             Button(tr("Open Xcode in App Store")) { vm.openXcodeAppStore() }
         }
     }
