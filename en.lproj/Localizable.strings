@@ -3,7 +3,7 @@
 "Saved to: " = "Saved to: ";
 "Report saved" = "Report saved";
 "OK" = "OK";
-"MacEnvDoctor – One-click Check & Optional Install" = "MacEnvDoctor – One-click Check & Optional Install";
+"MacEnvSwitcher – One-click Check & Optional Install" = "MacEnvSwitcher – One-click Check & Optional Install";
 "Check/Install: Xcode, CLT, iTerm2, oh-my-zsh, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba" = "Check/Install: Xcode, CLT, iTerm2, oh-my-zsh, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba";
 "Re-Check" = "Re-Check"; "Install Missing" = "Install Missing"; "Auto Confirm" = "Auto Confirm"; "Open Xcode in App Store" = "Open Xcode in App Store";
 "Check" = "Check"; "Install / Fix" = "Install / Fix"; "Skip" = "Skip"; "Xcode Command Line Tools" = "Xcode Command Line Tools";

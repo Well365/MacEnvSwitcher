@@ -1,7 +1,7 @@
 
 import SwiftUI
 @main
-struct MacEnvDoctorApp: App {
+struct MacEnvSwitcherApp: App {
     @ObservedObject private var languageManager = LanguageManager.shared
     
     init() {

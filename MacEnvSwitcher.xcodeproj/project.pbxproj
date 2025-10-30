@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1 /* Assets.xcassets */; };
-		A2 /* MacEnvDoctorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2 /* MacEnvDoctorApp.swift */; };
+		A2 /* MacEnvSwitcherApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2 /* MacEnvSwitcherApp.swift */; };
 		A3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3 /* ContentView.swift */; };
 		A4 /* TaskModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4 /* TaskModel.swift */; };
 		A5 /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5 /* Shell.swift */; };
@@ -26,7 +26,7 @@
 
 /* Begin PBXFileReference section */
 		B1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		B2 /* MacEnvDoctorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacEnvDoctorApp.swift; sourceTree = "<group>"; };
+		B2 /* MacEnvSwitcherApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacEnvSwitcherApp.swift; sourceTree = "<group>"; };
 		B3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B4 /* TaskModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskModel.swift; sourceTree = "<group>"; };
 		B5 /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shell.swift; sourceTree = "<group>"; };
@@ -43,7 +43,7 @@
 		L1 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		L2 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		L3 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
-		P0 /* MacEnvDoctor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = MacEnvDoctor.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		P0 /* MacEnvSwitcher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = MacEnvSwitcher.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,15 +60,15 @@
 		G0 = {
 			isa = PBXGroup;
 			children = (
-				G1 /* MacEnvDoctor */,
+				G1 /* MacEnvSwitcher */,
 				G2 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		G1 /* MacEnvDoctor */ = {
+		G1 /* MacEnvSwitcher */ = {
 			isa = PBXGroup;
 			children = (
-				B2 /* MacEnvDoctorApp.swift */,
+				B2 /* MacEnvSwitcherApp.swift */,
 				B3 /* ContentView.swift */,
 				B4 /* TaskModel.swift */,
 				B5 /* Shell.swift */,
@@ -85,13 +85,13 @@
 				LG /* Localizations */,
 				BL /* Info.plist */,
 			);
-			path = MacEnvDoctor;
+			path = MacEnvSwitcher;
 			sourceTree = "<group>";
 		};
 		G2 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				P0 /* MacEnvDoctor.app */,
+				P0 /* MacEnvSwitcher.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -107,9 +107,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		T0 /* MacEnvDoctor */ = {
+		T0 /* MacEnvSwitcher */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C1 /* Build configuration list for PBXNativeTarget "MacEnvDoctor" */;
+			buildConfigurationList = C1 /* Build configuration list for PBXNativeTarget "MacEnvSwitcher" */;
 			buildPhases = (
 				S0 /* Sources */,
 				R0 /* Resources */,
@@ -119,9 +119,9 @@
 			);
 			dependencies = (
 			);
-			name = MacEnvDoctor;
-			productName = MacEnvDoctor;
-			productReference = P0 /* MacEnvDoctor.app */;
+			name = MacEnvSwitcher;
+			productName = MacEnvSwitcher;
+			productReference = P0 /* MacEnvSwitcher.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -133,7 +133,7 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1500;
 			};
-			buildConfigurationList = C0 /* Build configuration list for PBXProject "MacEnvDoctor" */;
+			buildConfigurationList = C0 /* Build configuration list for PBXProject "MacEnvSwitcher" */;
 			compatibilityVersion = "Xcode 15.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -148,7 +148,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				T0 /* MacEnvDoctor */,
+				T0 /* MacEnvSwitcher */,
 			);
 		};
 /* End PBXProject section */
@@ -170,7 +170,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A2 /* MacEnvDoctorApp.swift in Sources */,
+				A2 /* MacEnvSwitcherApp.swift in Sources */,
 				A3 /* ContentView.swift in Sources */,
 				A4 /* TaskModel.swift in Sources */,
 				A5 /* Shell.swift in Sources */,
@@ -234,14 +234,14 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = X855Y85A4V;
-				INFOPLIST_FILE = MacEnvDoctor/Info.plist;
+				INFOPLIST_FILE = MacEnvSwitcher/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.4;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.MacEnvDoctor;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.MacEnvSwitcher;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SUPPORTS_MACCATALYST = NO;
@@ -259,14 +259,14 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = X855Y85A4V;
-				INFOPLIST_FILE = MacEnvDoctor/Info.plist;
+				INFOPLIST_FILE = MacEnvSwitcher/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.4;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.MacEnvDoctor;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.MacEnvSwitcher;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SUPPORTS_MACCATALYST = NO;
@@ -279,7 +279,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C0 /* Build configuration list for PBXProject "MacEnvDoctor" */ = {
+		C0 /* Build configuration list for PBXProject "MacEnvSwitcher" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D0 /* Debug */,
@@ -288,7 +288,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		C1 /* Build configuration list for PBXNativeTarget "MacEnvDoctor" */ = {
+		C1 /* Build configuration list for PBXNativeTarget "MacEnvSwitcher" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D2 /* Debug */,

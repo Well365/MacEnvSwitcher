@@ -3,7 +3,7 @@
 "Saved to: " = "保存先：";
 "Report saved" = "レポートを保存しました";
 "OK" = "OK";
-"MacEnvDoctor – One-click Check & Optional Install" = "MacEnvDoctor – ワンクリック診断と任意インストール";
+"MacEnvSwitcher – One-click Check & Optional Install" = "MacEnvSwitcher – ワンクリック診断と任意インストール";
 "Check/Install: Xcode, CLT, iTerm2, oh-my-zsh, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba" = "チェック/インストール：Xcode、CLT、iTerm2、oh-my-zsh、Homebrew、Python3、Ruby、fastlane、asdf、Node.js、Go、Java、pnpm、yarn、Maven、Gradle、Python(asdf)、Rust(asdf)、jabba";
 "Re-Check" = "再診断"; "Install Missing" = "不足項目をインストール"; "Auto Confirm" = "自動確認"; "Open Xcode in App Store" = "App Store の Xcode を開く";
 "Check" = "診断"; "Install / Fix" = "インストール/修復"; "Skip" = "スキップ"; "Xcode Command Line Tools" = "Xcode コマンドラインツール";

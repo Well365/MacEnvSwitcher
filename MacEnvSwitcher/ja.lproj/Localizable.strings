@@ -2,7 +2,7 @@
 "Saved to: " = "保存先：";
 "Report saved" = "レポートを保存しました";
 "OK" = "OK";
-"MacEnvDoctor – One-click Check & Optional Install" = "MacEnvDoctor – ワンクリック診断と任意インストール";
+"MacEnvSwitcher – One-click Check & Optional Install" = "MacEnvSwitcher – ワンクリック診断と任意インストール";
 "Check/Install: Xcode, CLT, iTerm2, oh-my-zsh, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba" = "チェック/インストール：Xcode、CLT、iTerm2、oh-my-zsh、Homebrew、Python3、Ruby、fastlane、asdf、Node.js、Go、Java、pnpm、yarn、Maven、Gradle、Python(asdf)、Rust(asdf)、jabba";
 "Re-Check" = "再診断"; "Install Missing" = "不足項目をインストール"; "Auto Confirm" = "自動確認"; "Open Xcode in App Store" = "App Store の Xcode を開く";
 "Check" = "診断"; "Install / Fix" = "インストール/修復"; "Skip" = "スキップ"; "Xcode Command Line Tools" = "Xcode コマンドラインツール";
@@ -21,7 +21,12 @@
 "Groups" = "グループ"; "Group Details" = "グループ詳細"; "Group Name" = "グループ名"; "Included Profiles:" = "含まれるプロファイル："; "Select a group on the left to edit." = "左のグループを選択して編集してください。";
 "Team Sync" = "チーム同期"; "Team Sync (Folder-based)" = "チーム同期（フォルダ）"; "Sync Folder:" = "同期フォルダ："; "Not set" = "未設定"; "Choose..." = "選択…";
 "Pull from Folder" = "フォルダから取得"; "Push to Folder" = "フォルダへ反映"; "Open Local Files" = "ローカルファイルを開く";
-"Tip: Put the sync folder inside Dropbox/Google Drive/git working tree to share with teammates." = "同期フォルダを Dropbox/Google Drive または git 作業ディレクトリに置くと、チーム共有に便利です。";"List Versions" = "バージョン一覧";
+"Tip: Put the sync folder inside Dropbox/Google Drive/git working tree to share with teammates." = "同期フォルダを Dropbox/Google Drive または git 作業ディレクトリに置くと、チーム共有に便利です。";
+"List Versions" = "バージョン一覧";
+"Refresh Versions" = "バージョンリストを更新";
+"Custom Input" = "カスタム入力";
+"Select Version" = "バージョンを選択";
+"Or enter custom version" = "またはカスタムバージョンを入力";
 
 // Detector tips
 "oh-my-zsh not installed" = "oh-my-zsh がインストールされていません";

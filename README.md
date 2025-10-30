@@ -1,5 +1,5 @@
 
-# MacEnvDoctor v4 – Profiles 可视化编辑器 + 组 + 导入/导出 + 团队同步
+# MacEnvSwitcher v4 – Profiles 可视化编辑器 + 组 + 导入/导出 + 团队同步
 
 功能：
 

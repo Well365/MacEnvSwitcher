@@ -108,6 +108,7 @@ struct EnvironmentEditorView: View {
                     }
                 }
             }
+            .frame(minWidth: 700)
             .navigationTitle(isNew ? tr("New Environment") : tr("Edit Environment"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -166,7 +167,24 @@ struct VersionEditorSheet: View {
     @Binding var version: String
     let onSave: (String, String) -> Void
     
+    @State private var isLoadingVersions: Bool = false
+    @State private var availableVersions: [String] = []
+    
     private let availableLanguages = ["nodejs", "python", "ruby", "java", "golang", "rust", "gradle", "maven", "yarn", "pnpm"]
+    
+    // 预定义的常用版本
+    private let predefinedVersions: [String: [String]] = [
+        "nodejs": ["23.11.0", "20.9.0", "18.18.2", "16.20.2", "latest", "latest:lts"],
+        "python": ["3.14.0", "3.12.0", "3.11.6", "3.10.13", "latest", "system"],
+        "ruby": ["3.3.8", "3.2.0", "3.1.4", "2.7.6", "latest", "system"],
+        "java": ["11.0.21", "8.0.432", "23.0.1", "17.0.9", "latest:temurin-11", "latest:temurin-17"],
+        "golang": ["1.24.2", "1.21.4", "1.20.11", "latest", "system"],
+        "gradle": ["7.6.1", "8.5", "8.4", "latest"],
+        "rust": ["1.74.0", "1.73.0", "stable", "latest"],
+        "maven": ["3.9.5", "3.8.8", "latest"],
+        "yarn": ["1.22.19", "latest"],
+        "pnpm": ["8.10.0", "latest"]
+    ]
     
     var body: some View {
         NavigationView {
@@ -181,7 +199,48 @@ struct VersionEditorSheet: View {
                 }
                 
                 Section(tr("Version")) {
-                    TextField(tr("Version (e.g., 18.17.0, latest, latest:lts)"), text: $version)
+                    HStack {
+                        // 版本下拉选择
+                        Menu {
+                            ForEach(getVersionOptions(), id: \.self) { ver in
+                                Button(ver) {
+                                    version = ver
+                                }
+                            }
+                            
+                            if !language.isEmpty {
+                                Divider()
+                                
+                                Button(action: {
+                                    loadAvailableVersions()
+                                }) {
+                                    HStack {
+                                        Text(tr("Refresh Versions"))
+                                        if isLoadingVersions {
+                                            ProgressView()
+                                                .scaleEffect(0.6)
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Text(version.isEmpty ? tr("Select Version") : version)
+                                    .foregroundColor(version.isEmpty ? .secondary : .primary)
+                                Spacer()
+                                Image(systemName: "chevron.down.circle")
+                            }
+                            .padding(8)
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(6)
+                        }
+                        .disabled(language.isEmpty || isLoadingVersions)
+                    }
+                    
+                    // 自定义输入框
+                    TextField(tr("Or enter custom version"), text: $version)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(language.isEmpty)
                     
                     Text(tr("Examples:"))
                         .font(.caption)
@@ -214,6 +273,37 @@ struct VersionEditorSheet: View {
                     }
                     .disabled(language.isEmpty || version.isEmpty)
                 }
+            }
+        }
+        .frame(minWidth: 500, minHeight: 450)
+    }
+    
+    private func getVersionOptions() -> [String] {
+        if !availableVersions.isEmpty {
+            return availableVersions
+        }
+        return predefinedVersions[language] ?? ["latest", "system"]
+    }
+    
+    private func loadAvailableVersions() {
+        guard !language.isEmpty else { return }
+        
+        isLoadingVersions = true
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            let command = "asdf list-all \(language) 2>/dev/null | tail -30"
+            let result = Shell.run(command)
+            let versions = result.out.split(separator: "\n")
+                .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            
+            DispatchQueue.main.async {
+                if !versions.isEmpty {
+                    self.availableVersions = ["latest", "system"] + versions
+                } else {
+                    self.availableVersions = predefinedVersions[language] ?? ["latest", "system"]
+                }
+                self.isLoadingVersions = false
             }
         }
     }

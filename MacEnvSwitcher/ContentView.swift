@@ -41,7 +41,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(tr("MacEnvDoctor – One-click Check & Optional Install")).font(.title2).bold()
+                    Text(tr("MacEnvSwitcher – One-click Check & Optional Install")).font(.title2).bold()
                     Text(tr("Check/Install: Xcode, CLT, iTerm2, oh-my-zsh, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba"))
                         .font(.subheadline).foregroundStyle(.secondary)
                 }

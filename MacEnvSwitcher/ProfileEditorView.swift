@@ -26,7 +26,7 @@ struct ProfileEditorView: View {
                     .tabItem { Label(tr("Groups"), systemImage: "person.3") }
                 syncTab
                     .tabItem { Label(tr("Team Sync"), systemImage: "arrow.triangle.2.circlepath") }
-            }.frame(height: 520)
+            }.frame(height: 580)
 
             if !log.isEmpty {
                 ScrollView {
@@ -35,7 +35,7 @@ struct ProfileEditorView: View {
             }
         }
         .padding(16)
-        .frame(minWidth: 960)
+        .frame(minWidth: 1200, minHeight: 700)
     }
 
     // MARK: - Profiles Tab
@@ -62,7 +62,7 @@ struct ProfileEditorView: View {
                     ForEach(profiles) { p in
                         Text(p.name).tag(p.id)
                     }
-                }.frame(width: 260, height: 420)
+                }.frame(width: 300, height: 480)
                 HStack {
                     Button(tr("Import...")) { ProfilesStore.importProfilesViaPanel { imported in
                         if imported.isEmpty { return }
@@ -80,10 +80,10 @@ struct ProfileEditorView: View {
                 Text(tr("Profile Details")).font(.headline)
                 if var p = selectedProfile {
                     TextField(tr("Profile Name"), text: Binding(get: { p.name }, set: { p.name = $0; updateProfile(p) }))
-                        .textFieldStyle(.roundedBorder).frame(maxWidth: 420)
+                        .textFieldStyle(.roundedBorder).frame(maxWidth: 520)
                     HStack {
-                        Text(tr("Plugin")).frame(width: 160, alignment: .leading).font(.system(size: 13, weight: .bold))
-                        Text(tr("Version")).frame(width: 240, alignment: .leading).font(.system(size: 13, weight: .bold))
+                        Text(tr("Plugin")).frame(width: 180, alignment: .leading).font(.system(size: 13, weight: .bold))
+                        Text(tr("Version")).frame(width: 340, alignment: .leading).font(.system(size: 13, weight: .bold))
                         Spacer()
                     }
                     ScrollView {
@@ -98,15 +98,20 @@ struct ProfileEditorView: View {
                                             p.versions[newKey] = v
                                             updateProfile(p)
                                         }))
-                                        .textFieldStyle(.roundedBorder).frame(width: 160)
-                                    TextField("version (e.g. latest:lts)", text: Binding(
-                                        get: { p.versions[key] ?? "" },
-                                        set: { newVal in
-                                            var pp = p
-                                            pp.versions[key] = newVal
-                                            updateProfile(pp)
-                                        }))
-                                        .textFieldStyle(.roundedBorder).frame(width: 240)
+                                        .textFieldStyle(.roundedBorder).frame(width: 180)
+                                    
+                                    VersionComboBoxView(
+                                        plugin: key,
+                                        version: Binding(
+                                            get: { p.versions[key] ?? "" },
+                                            set: { newVal in
+                                                var pp = p
+                                                pp.versions[key] = newVal
+                                                updateProfile(pp)
+                                            }
+                                        )
+                                    ).frame(width: 340)
+                                    
                                     Button(tr("Remove")) {
                                         var pp = p; pp.versions.removeValue(forKey: key); updateProfile(pp)
                                     }
@@ -114,7 +119,7 @@ struct ProfileEditorView: View {
                                 }
                             }
                         }.padding(.vertical, 4)
-                    }.frame(height: 320).background(.black.opacity(0.04)).clipShape(RoundedRectangle(cornerRadius: 8))
+                    }.frame(height: 380).background(.black.opacity(0.04)).clipShape(RoundedRectangle(cornerRadius: 8))
                     HStack {
                         Button(tr("Add Row")) {
                             var pp = p; pp.versions["plugin"] = "latest"; updateProfile(pp)
@@ -149,7 +154,7 @@ struct ProfileEditorView: View {
                     ForEach(groups) { g in
                         Text(g.name).tag(g.id)
                     }
-                }.frame(width: 260, height: 420)
+                }.frame(width: 300, height: 480)
                 HStack {
                     Button(tr("Import...")) { ProfilesStore.importGroupsViaPanel { imported in
                         if imported.isEmpty { return }
@@ -167,7 +172,7 @@ struct ProfileEditorView: View {
                 Text(tr("Group Details")).font(.headline)
                 if var g = selectedGroup {
                     TextField(tr("Group Name"), text: Binding(get: { g.name }, set: { g.name = $0; updateGroup(g) }))
-                        .textFieldStyle(.roundedBorder).frame(maxWidth: 420)
+                        .textFieldStyle(.roundedBorder).frame(maxWidth: 520)
 
                     Text(tr("Included Profiles:"))
                     ScrollView {
@@ -181,7 +186,7 @@ struct ProfileEditorView: View {
                                 }))
                             }
                         }
-                    }.frame(height: 340).background(.black.opacity(0.04)).clipShape(RoundedRectangle(cornerRadius: 8))
+                    }.frame(height: 400).background(.black.opacity(0.04)).clipShape(RoundedRectangle(cornerRadius: 8))
                     HStack {
                         Button(tr("Save")) { ProfilesStore.saveGroups(groups); log.append("\nSaved groups.") }
                         Spacer()
@@ -269,5 +274,126 @@ struct ProfileEditorView: View {
     }
     private func updateGroup(_ g: ProfileGroup) {
         if let idx = groups.firstIndex(where: {$0.id == g.id}) { groups[idx] = g; ProfilesStore.saveGroups(groups); selectedGroup = g }
+    }
+}
+
+// MARK: - Version ComboBox View
+struct VersionComboBoxView: View {
+    let plugin: String
+    @Binding var version: String
+    @State private var isEditing: Bool = false
+    @State private var editingText: String = ""
+    @State private var showVersionList: Bool = false
+    @State private var availableVersions: [String] = []
+    @State private var isLoadingVersions: Bool = false
+    
+    // 预定义的常用版本
+    private let predefinedVersions: [String: [String]] = [
+        "nodejs": ["23.11.0", "20.9.0", "18.18.2", "16.20.2", "latest", "latest:lts"],
+        "python": ["3.14.0", "3.12.0", "3.11.6", "3.10.13", "latest", "system"],
+        "ruby": ["3.3.8", "3.2.0", "3.1.4", "2.7.6", "latest", "system"],
+        "java": ["11.0.21", "8.0.432", "23.0.1", "17.0.9", "latest:temurin-11", "latest:temurin-17"],
+        "golang": ["1.24.2", "1.21.4", "1.20.11", "latest", "system"],
+        "gradle": ["7.6.1", "8.5", "8.4", "latest"],
+        "rust": ["1.74.0", "1.73.0", "stable", "latest"],
+        "maven": ["3.9.5", "3.8.8", "latest"],
+        "yarn": ["1.22.19", "latest"],
+        "pnpm": ["8.10.0", "latest"]
+    ]
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            // 可编辑的文本框/下拉框
+            if isEditing {
+                TextField("version", text: $editingText, onCommit: {
+                    commitEdit()
+                })
+                .textFieldStyle(.roundedBorder)
+                .onAppear {
+                    editingText = version
+                }
+            } else {
+                HStack {
+                    Text(version.isEmpty ? "latest" : version)
+                        .foregroundColor(version.isEmpty ? .secondary : .primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    Button(action: {
+                        isEditing = true
+                    }) {
+                        Image(systemName: "pencil.circle")
+                    }
+                    .buttonStyle(.borderless)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(6)
+            }
+            
+            // 版本选择下拉按钮
+            Menu {
+                ForEach(getVersionOptions(), id: \.self) { ver in
+                    Button(ver) {
+                        version = ver
+                        isEditing = false
+                    }
+                }
+                
+                Divider()
+                
+                Button(action: {
+                    loadAvailableVersions()
+                }) {
+                    HStack {
+                        Text(tr("Refresh Versions"))
+                        if isLoadingVersions {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                        }
+                    }
+                }
+                
+                Button(tr("Custom Input")) {
+                    isEditing = true
+                }
+            } label: {
+                Image(systemName: "chevron.down.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .frame(width: 30)
+            .disabled(isLoadingVersions)
+        }
+    }
+    
+    private func getVersionOptions() -> [String] {
+        if !availableVersions.isEmpty {
+            return availableVersions
+        }
+        return predefinedVersions[plugin] ?? ["latest", "system"]
+    }
+    
+    private func commitEdit() {
+        version = editingText.isEmpty ? "latest" : editingText
+        isEditing = false
+    }
+    
+    private func loadAvailableVersions() {
+        isLoadingVersions = true
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            let command = "asdf list-all \(plugin) 2>/dev/null | tail -20"
+            let result = Shell.run(command)
+            let versions = result.out.split(separator: "\n")
+                .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            
+            DispatchQueue.main.async {
+                if !versions.isEmpty {
+                    self.availableVersions = ["latest", "system"] + versions
+                }
+                self.isLoadingVersions = false
+            }
+        }
     }
 }
