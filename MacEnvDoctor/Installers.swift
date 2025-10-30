@@ -210,6 +210,10 @@ final class Installers {
     func apply(profile: EnvironmentProfile) -> (Bool, String, String?) {
         var logs = "[Profile] \(profile.name)\n"
         
+        // Update .zshrc with the new configuration
+        let zshrcResult = updateZshrcConfiguration(profile: profile)
+        logs += zshrcResult
+        
         // First install/switch language versions
         for (plugin, version) in profile.versions {
             ensureAsdfAndPlugin(plugin)
@@ -231,7 +235,138 @@ final class Installers {
         // Mark profile as active
         ProfilesStore.setActiveProfile(profile.name)
         
-        return (true, logs, tr("Environment '\(profile.name)' activated. Reopen terminal for shells to pick up PATH changes if needed."))
+        return (true, logs, tr("Environment '\(profile.name)' activated. Reopen terminal or run 'source ~/.zshrc' to apply changes."))
+    }
+    
+    // Update .zshrc configuration based on profile
+    private func updateZshrcConfiguration(profile: EnvironmentProfile) -> String {
+        var logs = "[Update .zshrc]\n"
+        let zshrcPath = NSHomeDirectory() + "/.zshrc"
+        
+        // Read current .zshrc content
+        guard let zshrcContent = try? String(contentsOfFile: zshrcPath, encoding: .utf8) else {
+            logs += "⚠️ Cannot read .zshrc file\n"
+            return logs
+        }
+        
+        var newContent = zshrcContent
+        var modified = false
+        
+        // Update Java version if specified
+        if let javaVersion = profile.versions["java"] {
+            let javaMapping = mapJavaVersion(javaVersion)
+            if let javaShortVersion = javaMapping.0 {
+                newContent = updateZshrcFunction(content: newContent, 
+                                                 pattern: "^use_java \\d+\\s*$",
+                                                 replacement: "use_java \(javaShortVersion)")
+                logs += "✅ Updated: use_java \(javaShortVersion)\n"
+                modified = true
+            }
+        }
+        
+        // Update Gradle version if specified
+        if let gradleVersion = profile.versions["gradle"] {
+            newContent = updateZshrcFunction(content: newContent,
+                                            pattern: "^use_gradle [\\d\\.]+\\s*$",
+                                            replacement: "use_gradle \(gradleVersion)")
+            logs += "✅ Updated: use_gradle \(gradleVersion)\n"
+            modified = true
+        }
+        
+        // Update Ruby version if specified
+        if let rubyVersion = profile.versions["ruby"] {
+            // Update use_ruby function call
+            newContent = updateZshrcFunction(content: newContent,
+                                            pattern: "^use_ruby [\\d\\.]+\\s*$",
+                                            replacement: "use_ruby \(rubyVersion)")
+            // Also update rbenv global if present
+            newContent = updateZshrcFunction(content: newContent,
+                                            pattern: "^rbenv global [\\d\\.]+\\s*$",
+                                            replacement: "rbenv global \(rubyVersion)")
+            logs += "✅ Updated: use_ruby \(rubyVersion)\n"
+            modified = true
+        }
+        
+        // Update Python version comment (for reference)
+        if let pythonVersion = profile.versions["python"] {
+            logs += "ℹ️ Python \(pythonVersion) (managed by asdf)\n"
+        }
+        
+        // Update Node.js version comment (for reference)
+        if let nodeVersion = profile.versions["nodejs"] {
+            logs += "ℹ️ Node.js \(nodeVersion) (managed by asdf/nvm)\n"
+        }
+        
+        // Update Go version comment (for reference)
+        if let goVersion = profile.versions["golang"] {
+            logs += "ℹ️ Go \(goVersion) (managed by asdf)\n"
+        }
+        
+        // Update environment variables in .zshrc
+        for (key, value) in profile.environmentVars {
+            let pattern = "^export \(key)=.*$"
+            let replacement = "export \(key)=\"\(value)\""
+            newContent = updateZshrcFunction(content: newContent,
+                                            pattern: pattern,
+                                            replacement: replacement)
+            logs += "✅ Updated: export \(key)=\"\(value)\"\n"
+            modified = true
+        }
+        
+        // Write back to .zshrc if modified
+        if modified {
+            // Backup original .zshrc
+            let backupPath = zshrcPath + ".backup." + String(Int(Date().timeIntervalSince1970))
+            try? zshrcContent.write(toFile: backupPath, atomically: true, encoding: .utf8)
+            logs += "📦 Backup created: ~/.zshrc.backup.*\n"
+            
+            // Write new content
+            do {
+                try newContent.write(toFile: zshrcPath, atomically: true, encoding: .utf8)
+                logs += "✅ .zshrc updated successfully\n"
+            } catch {
+                logs += "❌ Failed to write .zshrc: \(error.localizedDescription)\n"
+            }
+        } else {
+            logs += "ℹ️ No .zshrc updates needed\n"
+        }
+        
+        return logs + "\n"
+    }
+    
+    // Helper function to update lines in .zshrc matching a pattern
+    private func updateZshrcFunction(content: String, pattern: String, replacement: String) -> String {
+        var lines = content.components(separatedBy: "\n")
+        var modified = false
+        
+        for (index, line) in lines.enumerated() {
+            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+            if trimmedLine.range(of: pattern, options: .regularExpression) != nil {
+                // Preserve leading whitespace
+                let leadingWhitespace = String(line.prefix(while: { $0.isWhitespace }))
+                lines[index] = leadingWhitespace + replacement
+                modified = true
+            }
+        }
+        
+        return lines.joined(separator: "\n")
+    }
+    
+    // Map Java version to short version used in use_java function
+    private func mapJavaVersion(_ version: String) -> (String?, String?) {
+        // Extract major version number
+        if version.hasPrefix("1.8") {
+            return ("8", "/Library/Java/JavaVirtualMachines/jdk1.8.0_361.jdk/Contents/Home")
+        } else if version.hasPrefix("11") {
+            return ("11", "/Library/Java/JavaVirtualMachines/jdk-11.0.21.jdk/Contents/Home")
+        } else if version.hasPrefix("23") {
+            return ("23", "/opt/homebrew/Cellar/openjdk/23.0.2/libexec/openjdk.jdk/Contents/Home")
+        } else if version.hasPrefix("17") {
+            return ("17", nil)
+        } else if version.contains("temurin-21") || version.hasPrefix("21") {
+            return ("21", nil)
+        }
+        return (nil, nil)
     }
     
     // Setup virtual environments

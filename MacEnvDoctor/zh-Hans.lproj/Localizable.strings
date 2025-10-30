@@ -81,6 +81,7 @@
 "Environment '\(profile.name)' activated. Reopen terminal for shells to pick up PATH changes if needed." = "环境'\(profile.name)'已激活。如需要，请重新打开终端以使Shell生效PATH变更。";
 "Environment deactivated. System defaults restored." = "环境已停用。系统默认已恢复。";
 "Profile applied. Reopen terminal for shells to pick up PATH changes if needed." = "配置已应用。如需要，请重新打开终端以使Shell生效PATH变更。";
+"Environment '\(profile.name)' activated. Reopen terminal or run 'source ~/.zshrc' to apply changes." = "环境'\(profile.name)'已激活。请重新打开终端或运行 'source ~/.zshrc' 来应用更改。";
 
 // Language Management
 "Language" = "语言";
@@ -106,4 +107,8 @@
 "If Xcode installed, run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" = "如果 Xcode 已安装，请运行：sudo xcode-select -s /Applications/Xcode.app/Contents/Developer";
 "Install asdf via Homebrew, then add to shell rc" = "通过 Homebrew 安装 asdf，然后添加到 shell 配置文件";
 "oh-my-zsh installed. Default location: ~/.oh-my-zsh. If using shared path (/opt/shared_env/oh-my-zsh), configure manually in ~/.zshrc" = "oh-my-zsh 已安装。默认位置：~/.oh-my-zsh。如果使用共享路径 (/opt/shared_env/oh-my-zsh)，请手动在 ~/.zshrc 中配置";
+
+// Profile Editor
+"Detect System" = "检测系统配置";
+"Auto-detect current system configuration and create a profile" = "自动检测当前系统配置并创建配置档";
 

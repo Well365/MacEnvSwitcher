@@ -70,6 +70,9 @@
 "Install asdf via Homebrew, then add to shell rc" = "Install asdf via Homebrew, then add to shell rc";
 "oh-my-zsh installed. Default location: ~/.oh-my-zsh. If using shared path (/opt/shared_env/oh-my-zsh), configure manually in ~/.zshrc" = "oh-my-zsh installed. Default location: ~/.oh-my-zsh. If using shared path (/opt/shared_env/oh-my-zsh), configure manually in ~/.zshrc";
 
+"Environment '\(profile.name)' activated. Reopen terminal or run 'source ~/.zshrc' to apply changes." = "Environment '\(profile.name)' activated. Reopen terminal or run 'source ~/.zshrc' to apply changes.";
+
+
 
 
 // Version Management

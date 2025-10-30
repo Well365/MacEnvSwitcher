@@ -36,3 +36,6 @@
 "Install asdf via Homebrew, then add to shell rc" = "Homebrew で asdf をインストールし、シェル設定ファイルに追加してください";
 "oh-my-zsh installed. Default location: ~/.oh-my-zsh. If using shared path (/opt/shared_env/oh-my-zsh), configure manually in ~/.zshrc" = "oh-my-zsh がインストールされました。デフォルト場所：~/.oh-my-zsh。共有パス (/opt/shared_env/oh-my-zsh) を使用する場合は、~/.zshrc で手動設定してください";
 
+"Environment '\(profile.name)' activated. Reopen terminal or run 'source ~/.zshrc' to apply changes." = "環境'\(profile.name)'がアクティブになりました。ターミナルを再起動するか、'source ~/.zshrc' を実行して変更を適用してください。";
+
+

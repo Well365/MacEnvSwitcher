@@ -93,7 +93,7 @@ class VersionManager: ObservableObject {
         let result = Shell.run(command)
         let output = result.out
         return output.split(separator: "\n")
-            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map { String($0).trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
     }
     

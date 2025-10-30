@@ -49,6 +49,11 @@ struct ProfileEditorView: View {
                     Button(tr("Duplicate")) { duplicateProfile() }
                     Button(tr("Delete")) { deleteProfile() }
                 }
+                HStack {
+                    Button(tr("Detect System")) { detectCurrentSystem() }
+                        .help(tr("Auto-detect current system configuration and create a profile"))
+                    Spacer()
+                }
                 List(selection: Binding(get: {
                     selectedProfile == nil ? Set<EnvironmentProfile.ID>() : [selectedProfile!.id]
                 }, set: { ids in
@@ -226,6 +231,14 @@ struct ProfileEditorView: View {
     }
 
     // MARK: - helpers
+    private func detectCurrentSystem() {
+        let detected = ProfilesStore.detectCurrentConfiguration()
+        profiles.append(detected)
+        ProfilesStore.saveProfiles(profiles)
+        selectedProfile = detected
+        log.append("\n✅ Detected system configuration: \(detected.versions.count) tools found")
+    }
+    
     private func addProfile() {
         let p = EnvironmentProfile(name: "New Profile", versions: ["nodejs":"latest:lts"])
         profiles.append(p); ProfilesStore.saveProfiles(profiles); selectedProfile = p
