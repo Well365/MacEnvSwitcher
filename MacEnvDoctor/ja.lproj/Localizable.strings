@@ -3,7 +3,7 @@
 "Report saved" = "レポートを保存しました";
 "OK" = "OK";
 "MacEnvDoctor – One-click Check & Optional Install" = "MacEnvDoctor – ワンクリック診断と任意インストール";
-"Check/Install: Xcode, CLT, iTerm2, oh-my-bash, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba" = "チェック/インストール：Xcode、CLT、iTerm2、oh-my-bash、Homebrew、Python3、Ruby、fastlane、asdf、Node.js、Go、Java、pnpm、yarn、Maven、Gradle、Python(asdf)、Rust(asdf)、jabba";
+"Check/Install: Xcode, CLT, iTerm2, oh-my-zsh, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba" = "チェック/インストール：Xcode、CLT、iTerm2、oh-my-zsh、Homebrew、Python3、Ruby、fastlane、asdf、Node.js、Go、Java、pnpm、yarn、Maven、Gradle、Python(asdf)、Rust(asdf)、jabba";
 "Re-Check" = "再診断"; "Install Missing" = "不足項目をインストール"; "Auto Confirm" = "自動確認"; "Open Xcode in App Store" = "App Store の Xcode を開く";
 "Check" = "診断"; "Install / Fix" = "インストール/修復"; "Skip" = "スキップ"; "Xcode Command Line Tools" = "Xcode コマンドラインツール";
 "Ready " = "準備完了 "; "Check Result: " = "診断結果："; "Installed" = "インストール済み"; "Not Ready" = "未準備";
@@ -22,3 +22,17 @@
 "Team Sync" = "チーム同期"; "Team Sync (Folder-based)" = "チーム同期（フォルダ）"; "Sync Folder:" = "同期フォルダ："; "Not set" = "未設定"; "Choose..." = "選択…";
 "Pull from Folder" = "フォルダから取得"; "Push to Folder" = "フォルダへ反映"; "Open Local Files" = "ローカルファイルを開く";
 "Tip: Put the sync folder inside Dropbox/Google Drive/git working tree to share with teammates." = "同期フォルダを Dropbox/Google Drive または git 作業ディレクトリに置くと、チーム共有に便利です。";"List Versions" = "バージョン一覧";
+
+// Detector tips
+"oh-my-zsh not installed" = "oh-my-zsh がインストールされていません";
+"Python3 not found" = "Python3 が見つかりません";
+"CLT not installed. Use 'xcode-select --install'." = "CLT がインストールされていません。'xcode-select --install' を使用してください。";
+"Homebrew not found" = "Homebrew が見つかりません";
+"iTerm2 not installed" = "iTerm2 がインストールされていません";
+"Ruby not found" = "Ruby が見つかりません";
+"fastlane not found" = "fastlane が見つかりません";
+"Xcode not installed" = "Xcode がインストールされていません";
+"If Xcode installed, run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" = "Xcode がインストール済みの場合、実行してください：sudo xcode-select -s /Applications/Xcode.app/Contents/Developer";
+"Install asdf via Homebrew, then add to shell rc" = "Homebrew で asdf をインストールし、シェル設定ファイルに追加してください";
+"oh-my-zsh installed. Default location: ~/.oh-my-zsh. If using shared path (/opt/shared_env/oh-my-zsh), configure manually in ~/.zshrc" = "oh-my-zsh がインストールされました。デフォルト場所：~/.oh-my-zsh。共有パス (/opt/shared_env/oh-my-zsh) を使用する場合は、~/.zshrc で手動設定してください";
+

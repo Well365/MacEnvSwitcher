@@ -3,7 +3,7 @@
 "Report saved" = "报告已保存";
 "OK" = "好的";
 "MacEnvDoctor – One-click Check & Optional Install" = "MacEnvDoctor – 一键体检与可选安装";
-"Check/Install: Xcode, CLT, iTerm2, oh-my-bash, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba" = "检查/安装：Xcode、CLT、iTerm2、oh-my-bash、Homebrew、Python3、Ruby、fastlane、asdf、Node.js、Go、Java、pnpm、yarn、Maven、Gradle、Python(asdf)、Rust(asdf)、jabba";
+"Check/Install: Xcode, CLT, iTerm2, oh-my-zsh, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba" = "检查/安装：Xcode、CLT、iTerm2、oh-my-zsh、Homebrew、Python3、Ruby、fastlane、asdf、Node.js、Go、Java、pnpm、yarn、Maven、Gradle、Python(asdf)、Rust(asdf)、jabba";
 "Re-Check" = "重新体检"; "Install Missing" = "安装缺失项"; "Auto Confirm" = "自动确认"; "Open Xcode in App Store" = "打开 App Store 的 Xcode 页面";
 "Check" = "体检"; "Install / Fix" = "安装/修复"; "Skip" = "跳过"; "Xcode Command Line Tools" = "Xcode 命令行工具";
 "Ready " = "已就绪 "; "Check Result: " = "体检结果："; "Installed" = "已安装"; "Not Ready" = "未就绪";
@@ -93,3 +93,17 @@
 "Examples: 3.11.5, 2.7.18, latest, system" = "示例：3.11.5、2.7.18、latest、system";
 "Custom Version" = "自定义版本";
 "Confirm" = "确认";"List Versions" = "列出版本";
+
+// Detector tips
+"oh-my-zsh not installed" = "oh-my-zsh 未安装";
+"Python3 not found" = "Python3 未找到";
+"CLT not installed. Use 'xcode-select --install'." = "CLT 未安装。请使用 'xcode-select --install' 安装。";
+"Homebrew not found" = "Homebrew 未找到";
+"iTerm2 not installed" = "iTerm2 未安装";
+"Ruby not found" = "Ruby 未找到";
+"fastlane not found" = "fastlane 未找到";
+"Xcode not installed" = "Xcode 未安装";
+"If Xcode installed, run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" = "如果 Xcode 已安装，请运行：sudo xcode-select -s /Applications/Xcode.app/Contents/Developer";
+"Install asdf via Homebrew, then add to shell rc" = "通过 Homebrew 安装 asdf，然后添加到 shell 配置文件";
+"oh-my-zsh installed. Default location: ~/.oh-my-zsh. If using shared path (/opt/shared_env/oh-my-zsh), configure manually in ~/.zshrc" = "oh-my-zsh 已安装。默认位置：~/.oh-my-zsh。如果使用共享路径 (/opt/shared_env/oh-my-zsh)，请手动在 ~/.zshrc 中配置";
+

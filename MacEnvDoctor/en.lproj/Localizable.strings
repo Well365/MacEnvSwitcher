@@ -3,7 +3,7 @@
 "Report saved" = "Report saved";
 "OK" = "OK";
 "MacEnvDoctor – One-click Check & Optional Install" = "MacEnvDoctor – One-click Check & Optional Install";
-"Check/Install: Xcode, CLT, iTerm2, oh-my-bash, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba" = "Check/Install: Xcode, CLT, iTerm2, oh-my-bash, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba";
+"Check/Install: Xcode, CLT, iTerm2, oh-my-zsh, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba" = "Check/Install: Xcode, CLT, iTerm2, oh-my-zsh, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba";
 "Re-Check" = "Re-Check"; "Install Missing" = "Install Missing"; "Auto Confirm" = "Auto Confirm"; "Open Xcode in App Store" = "Open Xcode in App Store";
 "Check" = "Check"; "Install / Fix" = "Install / Fix"; "Skip" = "Skip"; "Xcode Command Line Tools" = "Xcode Command Line Tools";
 "Ready " = "Ready "; "Check Result: " = "Check Result: "; "Installed" = "Installed"; "Not Ready" = "Not Ready";
@@ -56,6 +56,20 @@
 // Language Management
 "Language" = "Language";
 "System Default" = "System Default";
+
+// Detector tips
+"oh-my-zsh not installed" = "oh-my-zsh not installed";
+"Python3 not found" = "Python3 not found";
+"CLT not installed. Use 'xcode-select --install'." = "CLT not installed. Use 'xcode-select --install'.";
+"Homebrew not found" = "Homebrew not found";
+"iTerm2 not installed" = "iTerm2 not installed";
+"Ruby not found" = "Ruby not found";
+"fastlane not found" = "fastlane not found";
+"Xcode not installed" = "Xcode not installed";
+"If Xcode installed, run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" = "If Xcode installed, run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer";
+"Install asdf via Homebrew, then add to shell rc" = "Install asdf via Homebrew, then add to shell rc";
+"oh-my-zsh installed. Default location: ~/.oh-my-zsh. If using shared path (/opt/shared_env/oh-my-zsh), configure manually in ~/.zshrc" = "oh-my-zsh installed. Default location: ~/.oh-my-zsh. If using shared path (/opt/shared_env/oh-my-zsh), configure manually in ~/.zshrc";
+
 
 
 // Version Management

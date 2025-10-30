@@ -31,8 +31,22 @@ final class Detectors {
     private func clt() -> CheckResult { let r = Shell.run("xcode-select -p"); let ok = (r.code == 0) && !r.out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty; return .init(ok: ok, log: r.out + r.err, tip: ok ? nil : tr("CLT not installed. Use ‘xcode-select --install’.")) }
     private func brew() -> CheckResult { let r = Shell.run("brew --version"); return .init(ok: r.code == 0, log: r.out + r.err, tip: r.code == 0 ? nil : tr("Homebrew not found")) }
     private func iterm2() -> CheckResult { let r1 = Shell.run("[ -d /Applications/iTerm.app ] && echo YES || echo NO"); if r1.out.contains("YES") { return .init(ok: true, log: "Found /Applications/iTerm.app", tip: nil) }; let r2 = Shell.run("brew list --cask --versions | awk '{print $1}' | grep -qx iterm2 && echo YES || echo NO"); return .init(ok: r2.out.contains("YES"), log: r1.out + r2.out, tip: r2.out.contains("YES") ? nil : tr("iTerm2 not installed")) }
-    private func ohMyBash() -> CheckResult { let r = Shell.run("[ -d \"$HOME/.oh-my-bash\" ] && echo YES || echo NO"); return .init(ok: r.out.contains("YES"), log: r.out + r.err, tip: r.out.contains("YES") ? nil : tr("oh-my-bash not installed")) }
-    private func python3() -> CheckResult { let r = Shell.run("python3 --version"); return .init(ok: r.code == 0, log: r.out + r.err, tip: r.code == 0 ? nil : tr("Python3 not found")) }
+    private func ohMyBash() -> CheckResult { 
+        // 检查标准路径和共享路径
+        let r1 = Shell.run("[ -d \"$HOME/.oh-my-zsh\" ] && echo YES || echo NO")
+        let r2 = Shell.run("[ -d \"/opt/shared_env/oh-my-zsh\" ] && echo YES || echo NO")
+        let r3 = Shell.run("grep -q 'oh-my-zsh' ~/.zshrc 2>/dev/null && echo YES || echo NO")
+        let ok = r1.out.contains("YES") || r2.out.contains("YES") || r3.out.contains("YES")
+        let log = "Standard path: " + r1.out + "Shared path: " + r2.out + "Config check: " + r3.out + r1.err + r2.err
+        return .init(ok: ok, log: log, tip: ok ? nil : tr("oh-my-zsh not installed"))
+    }
+    private func python3() -> CheckResult { 
+        let r = Shell.run("python3 --version 2>&1")
+        let r2 = Shell.run("which python3 2>&1")
+        let ok = r.code == 0 || !r.out.isEmpty || !r2.out.isEmpty
+        let log = "Version: " + r.out + r.err + "\nPath: " + r2.out
+        return .init(ok: ok, log: log, tip: ok ? nil : tr("Python3 not found"))
+    }
     private func ruby() -> CheckResult { let r = Shell.run("ruby --version"); return .init(ok: r.code == 0, log: r.out + r.err, tip: r.code == 0 ? nil : tr("Ruby not found")) }
     private func fastlane() -> CheckResult { let r = Shell.run("fastlane --version | head -n1"); return .init(ok: r.code == 0, log: r.out + r.err, tip: r.code == 0 ? nil : tr("fastlane not found")) }
     private func xcode() -> CheckResult { let r1 = Shell.run("[ -d /Applications/Xcode.app ] && echo YES || echo NO"); var ok = r1.out.contains("YES"); var log = r1.out; if ok { let r2 = Shell.run("xcodebuild -version"); ok = r2.code == 0; log += "\n" + r2.out + r2.err; let tip = ok ? nil : tr("If Xcode installed, run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"); return .init(ok: ok, log: log, tip: tip) } ; return .init(ok: false, log: log, tip: tr("Xcode not installed")) }

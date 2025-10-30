@@ -15,7 +15,7 @@ enum TaskID: CaseIterable {
         case .clt: return tr("Xcode Command Line Tools")
         case .brew: return "Homebrew"
         case .iterm2: return "iTerm2"
-        case .ohMyBash: return "oh-my-bash"
+        case .ohMyBash: return "oh-my-zsh"
         case .python3: return "Python 3"
         case .ruby: return "Ruby"
         case .fastlane: return "fastlane"

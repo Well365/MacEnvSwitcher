@@ -56,9 +56,9 @@ final class Installers {
         return (r.code == 0, r.out + r.err, nil)
     }
     private func installOhMyBash() -> (Bool, String, String?) {
-        let cmd = "bash -c \"$(curl -fsSL https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh)\""
+        let cmd = "sh -c \"$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\""
         let r = Shell.run(cmd)
-        return (true, r.out + r.err, tr("If you prefer bash as login shell, change in System Settings ▶ Users & Groups, or keep zsh."))
+        return (true, r.out + r.err, tr("oh-my-zsh installed. Default location: ~/.oh-my-zsh. If using shared path (/opt/shared_env/oh-my-zsh), configure manually in ~/.zshrc"))
     }
     private func installRuby() -> (Bool, String, String?) {
         let r = brewPkg("ruby")
