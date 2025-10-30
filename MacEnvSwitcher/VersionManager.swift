@@ -74,27 +74,90 @@ class VersionManager: ObservableObject {
         let command: String
         
         switch task {
-        case .python3:
-            command = "asdf list-all python 2>/dev/null | tail -20"
+        case .pythonAsdf:
+            command = "asdf list all python 2>/dev/null | tail -20"
         case .ruby:
-            command = "asdf list-all ruby 2>/dev/null | tail -20"
+            command = "asdf list all ruby 2>/dev/null | tail -20"
         case .nodejs:
-            command = "asdf list-all nodejs 2>/dev/null | tail -20"
+            command = "asdf list all nodejs 2>/dev/null | tail -20"
         case .golang:
-            command = "asdf list-all golang 2>/dev/null | tail -20"
+            command = "asdf list all golang 2>/dev/null | tail -20"
         case .java:
-            command = "asdf list-all java 2>/dev/null | grep openjdk | tail -10"
+            command = "asdf list all java 2>/dev/null | grep openjdk | tail -10"
         case .rust:
-            command = "asdf list-all rust 2>/dev/null | tail -10"
+            command = "asdf list all rust 2>/dev/null | tail -10"
         default:
             return []
         }
         
         let result = Shell.run(command)
-        let output = result.out
+        
+        // 使用统一的版本过滤方法
+        return VersionManager.cleanVersionOutput(result.out)
+    }
+    
+    // 清理版本输出，过滤掉命令说明和无关内容 - 可重用的静态方法
+    static func cleanVersionOutput(_ output: String) -> [String] {
         return output.split(separator: "\n")
             .map { String($0).trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+            .filter { line in
+                // 过滤掉包含命令说明的行
+                return !line.contains("Executes the command") &&
+                       !line.contains("Runs util") &&
+                       !line.contains("asdf exec") &&
+                       !line.contains("asdf env") &&
+                       !line.contains("asdf info") &&
+                       !line.contains("asdf version") &&
+                       !line.contains("asdf reshim") &&
+                       !line.contains("asdf shimversions") &&
+                       !line.contains("Print OS, Shell and ASDF") &&
+                       !line.contains("Print the currently installed") &&
+                       !line.contains("Recreate shims for version") &&
+                       !line.contains("List the plugins and versions") &&
+                       !line.contains("provide a command") &&
+                       !line.contains("RESOURCES") &&
+                       !line.contains("GitHub:") &&
+                       !line.contains("Docs:") &&
+                       !line.contains("PLUGIN") &&
+                       !line.contains("Late but latest") &&
+                       !line.contains("Rajinikanth") &&
+                       !line.hasPrefix("--") &&
+                       !line.hasPrefix("Usage:") &&
+                       !line.hasPrefix("Commands:") &&
+                       !line.contains("[args...]") &&
+                       !line.contains("<command>") &&
+                       !line.contains("[util]") &&
+                       !line.contains("<name>") &&
+                       !line.contains("<version>") &&
+                       line.count < 50  // 过滤掉过长的描述行
+            }
+            .compactMap { line in
+                // 进一步清理，确保只是版本号格式
+                let cleanLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                // 如果是明显的版本号格式，保留
+                if cleanLine.isEmpty { return nil }
+                
+                // 提取版本号部分（去掉星号等标记）
+                let versionLine = cleanLine.replacingOccurrences(of: "*", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                // 检查是否是版本号格式（数字开头或包含点号）
+                let versionPattern = "^[0-9]+(\\.[0-9]+)*"
+                let javaPattern = "^(openjdk|corretto|temurin|zulu)"
+                
+                if versionLine.range(of: versionPattern, options: .regularExpression) != nil ||
+                   versionLine.range(of: javaPattern, options: .regularExpression) != nil ||
+                   versionLine == "stable" ||
+                   versionLine == "beta" ||
+                   versionLine == "nightly" ||
+                   versionLine == "latest" ||
+                   versionLine == "system" {
+                    return versionLine
+                }
+                
+                return nil
+            }
     }
     
     // 验证版本是否有效

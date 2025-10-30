@@ -382,15 +382,15 @@ struct VersionComboBoxView: View {
         isLoadingVersions = true
         
         DispatchQueue.global(qos: .userInitiated).async {
-            let command = "asdf list-all \(plugin) 2>/dev/null | tail -20"
+            let command = "asdf list all \(plugin) 2>/dev/null | tail -20"
             let result = Shell.run(command)
-            let versions = result.out.split(separator: "\n")
-                .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
+            
+            // 使用VersionManager的统一过滤方法
+            let cleanedVersions = VersionManager.cleanVersionOutput(result.out)
             
             DispatchQueue.main.async {
-                if !versions.isEmpty {
-                    self.availableVersions = ["latest", "system"] + versions
+                if !cleanedVersions.isEmpty {
+                    self.availableVersions = ["latest", "system"] + cleanedVersions
                 }
                 self.isLoadingVersions = false
             }

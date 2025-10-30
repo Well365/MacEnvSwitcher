@@ -155,15 +155,36 @@ final class Installers {
             var out = ""; var ok = false
             if plugin != "" {
                 self.ensureAsdfAndPlugin(plugin)
-                let a = Shell.run("asdf list \(plugin) || true").out
-                let b = Shell.run("asdf current \(plugin) || true").out
-                let c = Shell.run("asdf list all \(plugin) | tail -n 50 || true").out
-                out = "Installed:\n\(a)\nCurrent:\n\(b)\nAvailable (tail):\n\(c)"
+                
+                // 获取已安装的版本
+                let installedResult = Shell.run("asdf list \(plugin) 2>/dev/null || echo 'None installed'")
+                let installedVersions = VersionManager.cleanVersionOutput(installedResult.out)
+                
+                // 获取当前版本
+                let currentResult = Shell.run("asdf current \(plugin) 2>/dev/null || echo 'No version set'")
+                let currentVersion = VersionManager.cleanVersionOutput(currentResult.out)
+                
+                // 获取可用版本（限制数量避免过多输出）
+                let availableResult = Shell.run("asdf list all \(plugin) 2>/dev/null | tail -n 20 || echo 'Cannot fetch available versions'")
+                let availableVersions = VersionManager.cleanVersionOutput(availableResult.out)
+                
+                // 格式化输出
+                out = "📦 \(plugin.capitalized) 版本信息\n\n"
+                out += "🟢 已安装版本:\n"
+                out += installedVersions.isEmpty ? "   尚未安装任何版本\n" : installedVersions.map { "   • \($0)" }.joined(separator: "\n") + "\n"
+                out += "\n🎯 当前使用版本:\n"
+                out += currentVersion.isEmpty ? "   未设置默认版本\n" : "   ✓ \(currentVersion.joined(separator: ", "))\n"
+                out += "\n📋 最新可用版本 (最近20个):\n"
+                out += availableVersions.isEmpty ? "   无法获取可用版本\n" : availableVersions.map { "   • \($0)" }.joined(separator: "\n")
+                
                 ok = true
+            } else {
+                out = "❌ 不支持的工具类型: \(t.displayName)"
             }
             DispatchQueue.main.async { completion(ok, out, nil) }
         }
     }
+    
     func installVersion(_ t: TaskID, version: String, completion: @escaping (Bool,String,String?) -> Void) {
         DispatchQueue.global().async {
             var plugin = ""
@@ -388,7 +409,7 @@ final class Installers {
                 
                 // Add to shell profile for auto-activation
                 let activateScript = "alias activate-\(venv.name)='source \(venvPath)/bin/activate'"
-                let addToProfile = Shell.run("echo '\(activateScript)' >> ~/.zprofile")
+                _ = Shell.run("echo '\(activateScript)' >> ~/.zprofile")
                 logs += "Added alias: activate-\(venv.name)\n"
             }
             
@@ -411,7 +432,7 @@ final class Installers {
                 
                 // Add activation alias
                 let activateScript = "alias activate-\(venv.name)='conda activate \(venv.name)'"
-                let addToProfile = Shell.run("echo '\(activateScript)' >> ~/.zprofile")
+                _ = Shell.run("echo '\(activateScript)' >> ~/.zprofile")
                 logs += "Added alias: activate-\(venv.name)\n"
             }
             
@@ -430,7 +451,7 @@ final class Installers {
                 
                 // Add to shell profile
                 let gemsetScript = "alias use-\(venv.name)='rvm gemset use \(gemset)'"
-                let addToProfile = Shell.run("echo '\(gemsetScript)' >> ~/.zprofile")
+                _ = Shell.run("echo '\(gemsetScript)' >> ~/.zprofile")
                 logs += "Added alias: use-\(venv.name)\n"
             }
             
@@ -449,7 +470,7 @@ final class Installers {
                 
                 // Add alias for this environment
                 let nodeScript = "alias node-\(venv.name)='nvm use \(nodeVer)'"
-                let addToProfile = Shell.run("echo '\(nodeScript)' >> ~/.zprofile")
+                _ = Shell.run("echo '\(nodeScript)' >> ~/.zprofile")
                 logs += "Added alias: node-\(venv.name)\n"
             }
             
@@ -477,7 +498,7 @@ final class Installers {
         
         for (key, value) in envVars {
             let exportCmd = "export \(key)=\"\(value)\""
-            let addToProfile = Shell.run("echo '\(exportCmd)' >> ~/.zprofile")
+            _ = Shell.run("echo '\(exportCmd)' >> ~/.zprofile")
             logs += "Set \(key)=\(value)\n"
         }
         

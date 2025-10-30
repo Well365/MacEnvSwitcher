@@ -101,7 +101,7 @@ final class BootstrapViewModel: ObservableObject {
         state[t]?.isBusy = true; state[t]?.tip = nil; state[t]?.log = ""
         objectWillChange.send()
         DispatchQueue.global().async {
-            let (ok, log, tip) = self.installers.install(t, autoYes: autoYes)
+            let (_, log, tip) = self.installers.install(t, autoYes: autoYes)
             let re = self.detectors.check(t)
             DispatchQueue.main.async {
                 self.state[t]?.installed = re.ok
@@ -160,12 +160,17 @@ final class BootstrapViewModel: ObservableObject {
     func applySelectedProfile() {
         guard let profile = selectedProfile else { return }
         DispatchQueue.global().async {
-            let (ok, log, tip) = self.installers.apply(profile: profile)
+            let (_, log, tip) = self.installers.apply(profile: profile)
             DispatchQueue.main.async {
                 self.state[.asdf]?.log = (self.state[.asdf]?.log ?? "") + "\\n" + log
                 self.state[.asdf]?.tip = tip
                 self.currentActiveProfile = ProfilesStore.getCurrentActiveProfile()
+                // 重新加载配置文件以确保界面同步
+                self.reloadProfiles()
+                // 执行全面检查
                 self.runFullCheck()
+                // 发送通知以确保界面更新
+                self.objectWillChange.send()
             }
         }
     }
@@ -177,12 +182,17 @@ final class BootstrapViewModel: ObservableObject {
         var merged = EnvironmentProfile(name: g.name + " (merged)", versions: [:])
         for p in used { for (k,v) in p.versions { merged.versions[k] = v } }
         DispatchQueue.global().async {
-            let (ok, log, tip) = self.installers.apply(profile: merged)
+            let (_, log, tip) = self.installers.apply(profile: merged)
             DispatchQueue.main.async {
                 self.state[.asdf]?.log = (self.state[.asdf]?.log ?? "") + "\\n[Group] " + g.name + "\\n" + log
                 self.state[.asdf]?.tip = tip
                 self.currentActiveProfile = ProfilesStore.getCurrentActiveProfile()
+                // 重新加载配置文件以确保界面同步
+                self.reloadProfiles()
+                // 执行全面检查
                 self.runFullCheck()
+                // 发送通知以确保界面更新
+                self.objectWillChange.send()
             }
         }
     }
@@ -194,17 +204,27 @@ final class BootstrapViewModel: ObservableObject {
                 self?.state[.asdf]?.log = (self?.state[.asdf]?.log ?? "") + "\n[Switch Environment]\n" + log
                 self?.state[.asdf]?.tip = tip
                 self?.currentActiveProfile = ProfilesStore.getCurrentActiveProfile()
+                // 重新加载配置文件以确保界面同步
+                self?.reloadProfiles()
+                // 执行全面检查
                 self?.runFullCheck()
+                // 发送通知以确保界面更新
+                self?.objectWillChange.send()
             }
         }
     }
     
     func deactivateCurrentEnvironment() {
-        let (ok, log, tip) = installers.deactivateCurrentEnvironment()
+        let (_, log, tip) = installers.deactivateCurrentEnvironment()
         state[.asdf]?.log = (state[.asdf]?.log ?? "") + "\n" + log
         state[.asdf]?.tip = tip
         currentActiveProfile = nil
+        // 重新加载配置文件以确保界面同步
+        reloadProfiles()
+        // 执行全面检查
         runFullCheck()
+        // 发送通知以确保界面更新
+        objectWillChange.send()
     }
     
     func addEnvironment(_ profile: EnvironmentProfile) {
