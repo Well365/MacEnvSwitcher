@@ -21,4 +21,4 @@
 "Groups" = "グループ"; "Group Details" = "グループ詳細"; "Group Name" = "グループ名"; "Included Profiles:" = "含まれるプロファイル："; "Select a group on the left to edit." = "左のグループを選択して編集してください。";
 "Team Sync" = "チーム同期"; "Team Sync (Folder-based)" = "チーム同期（フォルダ）"; "Sync Folder:" = "同期フォルダ："; "Not set" = "未設定"; "Choose..." = "選択…";
 "Pull from Folder" = "フォルダから取得"; "Push to Folder" = "フォルダへ反映"; "Open Local Files" = "ローカルファイルを開く";
-"Tip: Put the sync folder inside Dropbox/Google Drive/git working tree to share with teammates." = "同期フォルダを Dropbox/Google Drive または git 作業ディレクトリに置くと、チーム共有に便利です。";
+"Tip: Put the sync folder inside Dropbox/Google Drive/git working tree to share with teammates." = "同期フォルダを Dropbox/Google Drive または git 作業ディレクトリに置くと、チーム共有に便利です。";"List Versions" = "バージョン一覧";

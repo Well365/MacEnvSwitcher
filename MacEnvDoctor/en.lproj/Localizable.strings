@@ -22,3 +22,47 @@
 "Team Sync" = "Team Sync"; "Team Sync (Folder-based)" = "Team Sync (Folder-based)"; "Sync Folder:" = "Sync Folder:"; "Not set" = "Not set"; "Choose..." = "Choose...";
 "Pull from Folder" = "Pull from Folder"; "Push to Folder" = "Push to Folder"; "Open Local Files" = "Open Local Files";
 "Tip: Put the sync folder inside Dropbox/Google Drive/git working tree to share with teammates." = "Tip: Put the sync folder inside Dropbox/Google Drive/git working tree to share with teammates.";
+
+// Environment Management
+"Environment Manager" = "Environment Manager";
+"Active Environment: " = "Active Environment: ";
+"No active environment - using system defaults" = "No active environment - using system defaults";
+"Switch" = "Switch";
+"Manage" = "Manage";
+"Done" = "Done";
+"New Environment" = "New Environment";
+"Edit Environment" = "Edit Environment";
+"Current Active Environment" = "Current Active Environment";
+"Active since: " = "Active since: ";
+"Deactivate" = "Deactivate";
+"No Active Environment" = "No Active Environment";
+"Using system default versions" = "Using system default versions";
+"Quick Switch" = "Quick Switch";
+"Switch to Environment" = "Switch to Environment";
+"No other environments available" = "No other environments available";
+"Reload All" = "Reload All";
+"Export Samples" = "Export Samples";
+"All Environments" = "All Environments";
+"Edit" = "Edit";
+"Delete Environment" = "Delete Environment";
+"Are you sure you want to delete environment '\\(profile.name)'? This action cannot be undone." = "Are you sure you want to delete environment '\(profile.name)'? This action cannot be undone.";
+"Cancel" = "Cancel";
+"Created: " = "Created: ";
+"Last used: " = "Last used: ";
+"Language Versions:" = "Language Versions:";
+"Virtual Environments:" = "Virtual Environments:";
+"Environment Variables:" = "Environment Variables:";
+
+// Language Management
+"Language" = "Language";
+"System Default" = "System Default";
+
+
+// Version Management
+"Custom..." = "Custom...";
+"Enter Custom Version for " = "Enter Custom Version for ";
+"Version (e.g., 3.11.5)" = "Version (e.g., 3.11.5)";
+"Examples: 3.11.5, 2.7.18, latest, system" = "Examples: 3.11.5, 2.7.18, latest, system";
+"Custom Version" = "Custom Version";
+"Confirm" = "Confirm";
+"List Versions" = "List Versions";

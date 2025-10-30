@@ -8,39 +8,56 @@ struct EnvironmentManagerView: View {
     @State private var editingProfile: EnvironmentProfile? = nil
     @State private var selectedProfileForAction: EnvironmentProfile? = nil
     @State private var showDeleteConfirmation = false
+    @State private var refreshID = UUID()
     
     var body: some View {
-        NavigationView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Header with current active environment
-                currentEnvironmentHeader
-                
-                Divider()
-                
-                // Quick actions
-                quickActionsBar
-                
-                Divider()
-                
-                // Environment list
-                environmentsList
+        VStack(alignment: .leading, spacing: 0) {
+            // Toolbar
+            HStack {
+                Text(tr("Environment Manager"))
+                    .font(.title)
+                    .fontWeight(.bold)
                 
                 Spacer()
+                
+                Button(tr("New Environment")) {
+                    showCreateEnvironment = true
+                }
+                .buttonStyle(.borderedProminent)
+                
+                Button(tr("Done")) {
+                    isPresented = false
+                }
+                .buttonStyle(.bordered)
             }
             .padding()
-            .navigationTitle(tr("Environment Manager"))
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(tr("New Environment")) {
-                        showCreateEnvironment = true
-                    }
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Header with current active environment
+                    currentEnvironmentHeader
+                    
+                    Divider()
+                    
+                    // Quick actions
+                    quickActionsBar
+                    
+                    Divider()
+                    
+                    // Environment list
+                    environmentsList
+                    
+                    Spacer(minLength: 20)
                 }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(tr("Done")) {
-                        isPresented = false
-                    }
-                }
+                .padding()
             }
+        }
+        .id(refreshID)
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            refreshID = UUID()
         }
         .sheet(isPresented: $showCreateEnvironment) {
             EnvironmentEditorView(

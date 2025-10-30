@@ -81,3 +81,15 @@
 "Environment '\(profile.name)' activated. Reopen terminal for shells to pick up PATH changes if needed." = "环境'\(profile.name)'已激活。如需要，请重新打开终端以使Shell生效PATH变更。";
 "Environment deactivated. System defaults restored." = "环境已停用。系统默认已恢复。";
 "Profile applied. Reopen terminal for shells to pick up PATH changes if needed." = "配置已应用。如需要，请重新打开终端以使Shell生效PATH变更。";
+
+// Language Management
+"Language" = "语言";
+"System Default" = "系统默认";
+
+// Version Management
+"Custom..." = "自定义...";
+"Enter Custom Version for " = "输入自定义版本：";
+"Version (e.g., 3.11.5)" = "版本（例如：3.11.5）";
+"Examples: 3.11.5, 2.7.18, latest, system" = "示例：3.11.5、2.7.18、latest、system";
+"Custom Version" = "自定义版本";
+"Confirm" = "确认";"List Versions" = "列出版本";

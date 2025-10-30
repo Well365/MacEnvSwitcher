@@ -5,6 +5,7 @@ struct ContentView: View {
     @StateObject private var vm = BootstrapViewModel()
     @State private var autoYes = false
     @State private var showReport = false
+    @State private var refreshID = UUID()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -18,24 +19,38 @@ struct ContentView: View {
             footer
         }
         .padding(16)
+        .id(refreshID)
         .sheet(isPresented: $vm.showEditor) {
             ProfileEditorView(isPresented: $vm.showEditor)
         }
         .sheet(isPresented: $vm.showEnvironmentManager) {
             EnvironmentManagerView(isPresented: $vm.showEnvironmentManager, vm: vm)
-                .frame(minWidth: 800, minHeight: 600)
+                .frame(width: 800, height: 600)
         }
         .alert(tr("Report saved"), isPresented: $showReport) {
             Button(tr("OK"), role: .cancel) {}
         } message: { Text(vm.lastReportPath ?? "") }
         .onAppear { vm.runFullCheck() }
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            // 语言变更时刷新视图
+            refreshID = UUID()
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(tr("MacEnvDoctor – One-click Check & Optional Install")).font(.title2).bold()
-            Text(tr("Check/Install: Xcode, CLT, iTerm2, oh-my-bash, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba"))
-                .font(.subheadline).foregroundStyle(.secondary)
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(tr("MacEnvDoctor – One-click Check & Optional Install")).font(.title2).bold()
+                    Text(tr("Check/Install: Xcode, CLT, iTerm2, oh-my-bash, Homebrew, Python3, Ruby, fastlane, asdf, Node.js, Go, Java, pnpm, yarn, Maven, Gradle, Python(asdf), Rust(asdf), jabba"))
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                // Language picker
+                LanguagePickerView()
+            }
             
             // Current environment indicator
             if let current = vm.currentActiveProfile {
@@ -209,10 +224,27 @@ struct TaskRow: View {
             if state.supportsVersioning {
                 HStack(spacing: 8) {
                     Text(tr("Version:"))
-                    TextField(tr("e.g. 20.14.0 / latest / latest:lts / 1.21 / temurin-17"), text: $versionInput)
-                        .textFieldStyle(.roundedBorder).frame(maxWidth: 520)
-                    Button(tr("Install Ver")) { onInstallVer(versionInput) }
-                    Button(tr("Set Default")) { onSetDefault(versionInput) }
+                    
+                    // 使用版本选择器替代文本输入框
+                    VersionPickerView(
+                        task: task,
+                        selectedVersion: $versionInput
+                    )
+                    
+                    Button(tr("Install Ver")) { 
+                        if !versionInput.isEmpty {
+                            onInstallVer(versionInput) 
+                        }
+                    }
+                    .disabled(versionInput.isEmpty)
+                    
+                    Button(tr("Set Default")) { 
+                        if !versionInput.isEmpty {
+                            onSetDefault(versionInput) 
+                        }
+                    }
+                    .disabled(versionInput.isEmpty)
+                    
                     Button(tr("Latest")) { onInstallLatest() }
                     Button(tr("List")) { onList() }
                 }.font(.caption)

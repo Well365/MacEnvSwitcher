@@ -20,6 +20,8 @@
 		AB /* ProfileEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA /* ProfileEditorView.swift */; };
 		AC /* EnvironmentManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB /* EnvironmentManagerView.swift */; };
 		AD /* EnvironmentEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC /* EnvironmentEditorView.swift */; };
+		AE /* LanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD /* LanguageManager.swift */; };
+		AF /* VersionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE /* VersionManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +37,8 @@
 		BA /* ProfileEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileEditorView.swift; sourceTree = "<group>"; };
 		BB /* EnvironmentManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentManagerView.swift; sourceTree = "<group>"; };
 		BC /* EnvironmentEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentEditorView.swift; sourceTree = "<group>"; };
+		BD /* LanguageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageManager.swift; sourceTree = "<group>"; };
+		BE /* VersionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionManager.swift; sourceTree = "<group>"; };
 		BL /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		L1 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		L2 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
@@ -74,6 +78,8 @@
 				BA /* ProfileEditorView.swift */,
 				BB /* EnvironmentManagerView.swift */,
 				BC /* EnvironmentEditorView.swift */,
+				BD /* LanguageManager.swift */,
+				BE /* VersionManager.swift */,
 				B8 /* Report.swift */,
 				B1 /* Assets.xcassets */,
 				LG /* Localizations */,
@@ -175,6 +181,8 @@
 				AB /* ProfileEditorView.swift in Sources */,
 				AC /* EnvironmentManagerView.swift in Sources */,
 				AD /* EnvironmentEditorView.swift in Sources */,
+				AE /* LanguageManager.swift in Sources */,
+				AF /* VersionManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

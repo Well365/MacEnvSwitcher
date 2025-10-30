@@ -1,7 +1,10 @@
 
 import SwiftUI
 
-func tr(_ key: String) -> String { NSLocalizedString(key, comment: "") }
+func tr(_ key: String) -> String {
+    let languageManager = LanguageManager.shared
+    return languageManager.localizedString(for: key)
+}
 
 enum TaskID: CaseIterable {
     case clt, brew, iterm2, ohMyBash, python3, ruby, fastlane, xcode, asdf,
