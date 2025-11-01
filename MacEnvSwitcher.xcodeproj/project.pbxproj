@@ -22,6 +22,8 @@
 		AD /* EnvironmentEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC /* EnvironmentEditorView.swift */; };
 		AE /* LanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD /* LanguageManager.swift */; };
 		AF /* VersionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE /* VersionManager.swift */; };
+		AG /* SetupWizardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF /* SetupWizardView.swift */; };
+		AH /* LanguageManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2 /* LanguageManagementView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,7 +41,9 @@
 		BC /* EnvironmentEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentEditorView.swift; sourceTree = "<group>"; };
 		BD /* LanguageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageManager.swift; sourceTree = "<group>"; };
 		BE /* VersionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionManager.swift; sourceTree = "<group>"; };
+		BF /* SetupWizardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupWizardView.swift; sourceTree = "<group>"; };
 		BL /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C2 /* LanguageManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageManagementView.swift; sourceTree = "<group>"; };
 		L1 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		L2 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		L3 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -70,6 +74,8 @@
 			children = (
 				B2 /* MacEnvSwitcherApp.swift */,
 				B3 /* ContentView.swift */,
+				BF /* SetupWizardView.swift */,
+				C2 /* LanguageManagementView.swift */,
 				B4 /* TaskModel.swift */,
 				B5 /* Shell.swift */,
 				B6 /* Detectors.swift */,
@@ -172,6 +178,8 @@
 			files = (
 				A2 /* MacEnvSwitcherApp.swift in Sources */,
 				A3 /* ContentView.swift in Sources */,
+				AG /* SetupWizardView.swift in Sources */,
+				AH /* LanguageManagementView.swift in Sources */,
 				A4 /* TaskModel.swift in Sources */,
 				A5 /* Shell.swift in Sources */,
 				A6 /* Detectors.swift in Sources */,

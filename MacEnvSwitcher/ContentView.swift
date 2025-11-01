@@ -1,4 +1,3 @@
-
 import SwiftUI
 
 struct ContentView: View {
@@ -24,7 +23,7 @@ struct ContentView: View {
             ProfileEditorView(isPresented: $vm.showEditor)
         }
         .sheet(isPresented: $vm.showEnvironmentManager) {
-            EnvironmentManagerView(isPresented: $vm.showEnvironmentManager, vm: vm)
+            EnvironmentManagerView()
                 .frame(width: 800, height: 600)
         }
         .alert(tr("Report saved"), isPresented: $showReport) {

@@ -1,8 +1,7 @@
 import SwiftUI
 
 struct EnvironmentManagerView: View {
-    @Binding var isPresented: Bool
-    @ObservedObject var vm: BootstrapViewModel
+    @StateObject private var vm = BootstrapViewModel()
     @State private var showCreateEnvironment = false
     @State private var showEditEnvironment = false
     @State private var editingProfile: EnvironmentProfile? = nil
@@ -25,8 +24,10 @@ struct EnvironmentManagerView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 
-                Button(tr("Done")) {
-                    isPresented = false
+                Button(action: {
+                    vm.reloadProfiles()
+                }) {
+                    Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
             }
@@ -144,7 +145,6 @@ struct EnvironmentManagerView: View {
                     ForEach(vm.profiles.filter { !$0.isActive }, id: \.self) { profile in
                         Button(action: {
                             vm.switchToEnvironment(profile)
-                            isPresented = false
                         }) {
                             VStack(alignment: .leading) {
                                 Text(profile.name)
@@ -187,7 +187,6 @@ struct EnvironmentManagerView: View {
                             isActive: profile.isActive,
                             onSwitch: {
                                 vm.switchToEnvironment(profile)
-                                isPresented = false
                             },
                             onEdit: {
                                 editingProfile = profile
@@ -316,8 +315,5 @@ struct EnvironmentCard: View {
 }
 
 #Preview {
-    EnvironmentManagerView(
-        isPresented: .constant(true),
-        vm: BootstrapViewModel()
-    )
+    EnvironmentManagerView()
 }
