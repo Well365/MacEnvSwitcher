@@ -4,26 +4,68 @@ import SwiftUI
 struct LanguageManagementView: View {
     @StateObject private var viewModel = LanguageManagementViewModel()
     @State private var selectedLanguage: ProgrammingLanguage?
+    @State private var showingAddLanguage = false
     
     var body: some View {
-        NavigationView {
+        HStack(spacing: 0) {
             // 左侧：语言列表
-            ScrollView {
-                VStack(spacing: 12) {
-                    ForEach(viewModel.languages) { language in
-                        LanguageCard(
-                            language: language,
-                            isSelected: selectedLanguage?.id == language.id
-                        )
-                        .onTapGesture {
-                            selectedLanguage = language
-                        }
+            VStack(spacing: 0) {
+                // 标题栏
+                HStack {
+                    Text(tr("Language Management"))
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        viewModel.refreshAll()
+                    }) {
+                        Image(systemName: "arrow.clockwise")
                     }
+                    .buttonStyle(.plain)
                 }
                 .padding()
+                
+                Divider()
+                
+                // 添加语言按钮
+                Button(action: {
+                    showingAddLanguage = true
+                }) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text(tr("Add Language"))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(10)
+                }
+                .buttonStyle(.plain)
+                .padding()
+                
+                Divider()
+                
+                ScrollView {
+                    VStack(spacing: 12) {
+                        ForEach(viewModel.languages) { language in
+                            LanguageCard(
+                                language: language,
+                                isSelected: selectedLanguage?.id == language.id
+                            )
+                            .onTapGesture {
+                                selectedLanguage = language
+                            }
+                        }
+                    }
+                    .padding()
+                }
             }
-            .frame(minWidth: 250, maxWidth: 300)
+            .frame(width: 300)
             .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
             
             // 右侧：语言详情
             if let language = selectedLanguage {
@@ -33,22 +75,15 @@ struct LanguageManagementView: View {
                     Image(systemName: "arrow.left")
                         .font(.system(size: 48))
                         .foregroundColor(.secondary)
-                    Text("请选择一个编程语言")
+                    Text(tr("Select Language"))
                         .font(.title2)
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .navigationTitle("语言版本管理")
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button(action: {
-                    viewModel.refreshAll()
-                }) {
-                    Image(systemName: "arrow.clockwise")
-                }
-            }
+        .sheet(isPresented: $showingAddLanguage) {
+            AddLanguageView(viewModel: viewModel)
         }
         .onAppear {
             viewModel.loadLanguages()
@@ -458,7 +493,7 @@ class LanguageManagementViewModel: ObservableObject {
                 id: "python",
                 displayName: "Python",
                 description: "通用编程语言，适合数据科学和 Web 开发",
-                icon: "snake.fill",
+                icon: "chevron.left.forwardslash.chevron.right",
                 color: .blue,
                 isInstalled: false,
                 installedVersions: [],
@@ -468,7 +503,7 @@ class LanguageManagementViewModel: ObservableObject {
                 id: "ruby",
                 displayName: "Ruby",
                 description: "优雅的动态语言，Rails 框架的基础",
-                icon: "gem.fill",
+                icon: "diamond.fill",
                 color: .red,
                 isInstalled: false,
                 installedVersions: [],
@@ -506,7 +541,10 @@ class LanguageManagementViewModel: ObservableObject {
             )
         ]
         
-        refreshAll()
+        // 延迟刷新，避免在视图更新期间修改状态
+        DispatchQueue.main.async {
+            self.refreshAll()
+        }
     }
     
     func refreshAll() {
@@ -515,7 +553,7 @@ class LanguageManagementViewModel: ObservableObject {
         }
     }
     
-    private func refreshLanguageStatus(at index: Int) {
+    func refreshLanguageStatus(at index: Int) {
         let language = languages[index]
         
         DispatchQueue.global(qos: .userInitiated).async {
@@ -610,6 +648,313 @@ class LanguageManagementViewModel: ObservableObject {
     
     func showVersionDetails(language: ProgrammingLanguage, version: String) {
         // TODO: 显示版本详细信息
+    }
+}
+
+// 添加语言视图
+struct AddLanguageView: View {
+    @ObservedObject var viewModel: LanguageManagementViewModel
+    @Environment(\.dismiss) var dismiss
+    
+    @State private var availablePlugins: [AsdfPlugin] = []
+    @State private var isLoading = true
+    @State private var searchText = ""
+    @State private var selectedPlugin: AsdfPlugin?
+    @State private var isInstalling = false
+    
+    var filteredPlugins: [AsdfPlugin] {
+        if searchText.isEmpty {
+            return availablePlugins
+        }
+        return availablePlugins.filter { plugin in
+            plugin.name.localizedCaseInsensitiveContains(searchText) ||
+            plugin.description.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // 搜索栏
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    TextField(tr("Search languages..."), text: $searchText)
+                        .textFieldStyle(.plain)
+                }
+                .padding()
+                .background(Color(NSColor.controlBackgroundColor))
+                
+                Divider()
+                
+                // 可用插件列表
+                if isLoading {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                        Text(tr("Loading available languages..."))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if filteredPlugins.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "questionmark.circle")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text(searchText.isEmpty ? tr("No languages available") : tr("No matching languages"))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            ForEach(filteredPlugins) { plugin in
+                                AsdfPluginCard(
+                                    plugin: plugin,
+                                    isSelected: selectedPlugin?.name == plugin.name,
+                                    isInstalled: viewModel.languages.contains(where: { $0.id == plugin.name })
+                                )
+                                .onTapGesture {
+                                    selectedPlugin = plugin
+                                }
+                            }
+                        }
+                        .padding()
+                    }
+                }
+                
+                Divider()
+                
+                // 底部操作
+                HStack {
+                    Button(tr("Cancel")) {
+                        dismiss()
+                    }
+                    
+                    Spacer()
+                    
+                    if let plugin = selectedPlugin {
+                        Button(action: {
+                            addLanguage(plugin)
+                        }) {
+                            HStack {
+                                if isInstalling {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                }
+                                Text(isInstalling ? tr("Installing...") : tr("Add Language"))
+                            }
+                        }
+                        .disabled(isInstalling || viewModel.languages.contains(where: { $0.id == plugin.name }))
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle(tr("Add Language"))
+        }
+        .frame(minWidth: 800, idealWidth: 900, minHeight: 650, idealHeight: 700)
+        .onAppear {
+            loadAvailablePlugins()
+        }
+    }
+    
+    private func loadAvailablePlugins() {
+        isLoading = true
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            // 获取所有可用的 asdf 插件
+            let result = Shell.run("asdf plugin list all")
+            
+            if result.code == 0 {
+                var plugins: [AsdfPlugin] = []
+                let lines = result.out.components(separatedBy: "\n")
+                
+                for line in lines {
+                    let parts = line.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+                    if parts.count >= 2 {
+                        let name = parts[0]
+                        let url = parts[1]
+                        plugins.append(AsdfPlugin(
+                            name: name,
+                            url: url,
+                            description: getPluginDescription(name)
+                        ))
+                    }
+                }
+                
+                DispatchQueue.main.async {
+                    self.availablePlugins = plugins.sorted { $0.name < $1.name }
+                    self.isLoading = false
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                }
+            }
+        }
+    }
+    
+    private func getPluginDescription(_ name: String) -> String {
+        // 常见语言的描述
+        let descriptions: [String: String] = [
+            "nodejs": "JavaScript runtime built on Chrome's V8",
+            "python": "Interpreted high-level programming language",
+            "ruby": "Dynamic, object-oriented programming language",
+            "java": "Object-oriented programming language",
+            "golang": "Statically typed, compiled programming language",
+            "rust": "Systems programming language focused on safety",
+            "php": "Server-side scripting language",
+            "elixir": "Functional, concurrent programming language",
+            "erlang": "Concurrent, fault-tolerant programming language",
+            "kotlin": "Statically typed programming language for JVM",
+            "scala": "Functional and object-oriented language for JVM",
+            "perl": "High-level, general-purpose programming language",
+            "lua": "Lightweight, embeddable scripting language",
+            "r": "Statistical computing and graphics language",
+            "dart": "Client-optimized language for apps",
+            "crystal": "Fast, type-safe programming language",
+            "nim": "Efficient, expressive programming language",
+            "julia": "High-performance dynamic language for computing",
+            "haskell": "Purely functional programming language",
+            "ocaml": "Industrial strength functional programming",
+            "clojure": "Dynamic, functional Lisp dialect for JVM",
+            "racket": "General-purpose programming language (Lisp/Scheme)",
+            "zig": "General-purpose programming language",
+            "deno": "Secure runtime for JavaScript and TypeScript"
+        ]
+        
+        return descriptions[name] ?? "Programming language or tool"
+    }
+    
+    private func addLanguage(_ plugin: AsdfPlugin) {
+        isInstalling = true
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            // 首先添加 asdf 插件
+            let addResult = Shell.run("asdf plugin add \(plugin.name) || true")
+            
+            // 等待插件添加完成
+            Thread.sleep(forTimeInterval: 1.0)
+            
+            // 创建新语言对象
+            let newLanguage = ProgrammingLanguage(
+                id: plugin.name,
+                displayName: plugin.name.capitalized,
+                description: plugin.description,
+                icon: getIconForLanguage(plugin.name),
+                color: getColorForLanguage(plugin.name),
+                isInstalled: false,
+                currentVersion: nil,
+                installedVersions: [],
+                availableVersions: []
+            )
+            
+            DispatchQueue.main.async {
+                // 添加到语言列表
+                viewModel.languages.append(newLanguage)
+                
+                // 刷新该语言的状态
+                if let index = viewModel.languages.firstIndex(where: { $0.id == plugin.name }) {
+                    viewModel.refreshLanguageStatus(at: index)
+                    viewModel.loadAvailableVersions(language: viewModel.languages[index])
+                }
+                
+                isInstalling = false
+                dismiss()
+            }
+        }
+    }
+    
+    private func getIconForLanguage(_ name: String) -> String {
+        let icons: [String: String] = [
+            "nodejs": "leaf.fill",
+            "python": "chevron.left.forwardslash.chevron.right",
+            "ruby": "diamond.fill",
+            "java": "cup.and.saucer.fill",
+            "golang": "g.circle.fill",
+            "rust": "gearshape.2.fill",
+            "php": "chevron.left.forwardslash.chevron.right",
+            "elixir": "drop.fill",
+            "kotlin": "k.circle.fill",
+            "scala": "s.circle.fill",
+            "dart": "d.circle.fill",
+            "lua": "moon.fill",
+            "r": "r.circle.fill"
+        ]
+        
+        return icons[name] ?? "terminal.fill"
+    }
+    
+    private func getColorForLanguage(_ name: String) -> Color {
+        let colors: [String: Color] = [
+            "nodejs": .green,
+            "python": .blue,
+            "ruby": .red,
+            "java": .orange,
+            "golang": .cyan,
+            "rust": .orange,
+            "php": .purple,
+            "elixir": .purple,
+            "kotlin": .purple,
+            "scala": .red,
+            "dart": .blue,
+            "lua": .blue,
+            "r": .blue
+        ]
+        
+        return colors[name] ?? .gray
+    }
+}
+
+// asdf 插件模型
+struct AsdfPlugin: Identifiable {
+    let name: String
+    let url: String
+    let description: String
+    
+    var id: String { name }
+}
+
+// 插件卡片
+struct AsdfPluginCard: View {
+    let plugin: AsdfPlugin
+    let isSelected: Bool
+    let isInstalled: Bool
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: isInstalled ? "checkmark.circle.fill" : "circle")
+                .font(.title2)
+                .foregroundColor(isInstalled ? .green : .secondary)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(plugin.name.capitalized)
+                    .font(.headline)
+                
+                Text(plugin.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            }
+            
+            Spacer()
+            
+            if isInstalled {
+                Text(tr("Installed"))
+                    .font(.caption)
+                    .foregroundColor(.green)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(4)
+            }
+        }
+        .padding()
+        .background(isSelected ? Color.blue.opacity(0.1) : Color(NSColor.controlBackgroundColor))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+        )
     }
 }
 

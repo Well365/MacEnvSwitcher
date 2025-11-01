@@ -43,4 +43,31 @@
 
 "Environment '\(profile.name)' activated. Reopen terminal or run 'source ~/.zshrc' to apply changes." = "環境'\(profile.name)'がアクティブになりました。ターミナルを再起動するか、'source ~/.zshrc' を実行して変更を適用してください。";
 
+// Main App
+"Main Features" = "主要機能";
+"Environment Profiles" = "環境プロファイル";
+"Settings" = "設定";
+"System" = "システム";
+
+// Language Management
+"Language Management" = "言語バージョン管理";
+"Add Language" = "言語を追加";
+"Select Language" = "プログラミング言語を選択してください";
+"Search languages..." = "言語を検索...";
+"Loading available languages..." = "利用可能な言語を読み込み中...";
+"No languages available" = "利用可能な言語がありません";
+"No matching languages" = "一致する言語がありません";
+"Installing..." = "インストール中...";
+
+// Setup Wizard
+"Environment Setup Wizard" = "環境設定ウィザード";
+"Installing required development tools for first-time use" = "初回使用時に必要な開発ツールをインストール";
+"Checking system environment..." = "システム環境を確認中...";
+"Pending" = "保留中";
+"Error" = "エラー";
+"Recheck All" = "すべて再確認";
+"Continue" = "続行";
+"Setup Wizard" = "セットアップウィザード";
+"Install" = "インストール";
+"Manual Installation Steps" = "手動インストール手順";
 

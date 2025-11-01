@@ -19,11 +19,24 @@ struct MacEnvSwitcherApp: App {
     var body: some Scene {
         WindowGroup {
             MainAppView(showingSetupWizard: $showingSetupWizard)
-                .frame(minWidth: 900, minHeight: 700)
+                .frame(
+                    minWidth: 900, 
+                    idealWidth: 1100, 
+                    maxWidth: .infinity,
+                    minHeight: 700, 
+                    idealHeight: 800, 
+                    maxHeight: .infinity
+                )
                 .environment(\.locale, currentLocale)
                 .onAppear {
-                    // 检查是否需要显示设置向导
-                    if !setupCompleted || checkOnStartup {
+                    // 首次启动时强制显示设置向导
+                    if !setupCompleted {
+                        // 短暂延迟以确保窗口已显示
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            self.showingSetupWizard = true
+                        }
+                    } else if checkOnStartup {
+                        // 非首次启动但需要检查
                         checkRequiredTools()
                     }
                 }
@@ -101,33 +114,51 @@ struct MainAppView: View {
     }
     
     var body: some View {
-        NavigationView {
+        HStack(spacing: 0) {
             // 侧边栏
-            List {
-                Section("主要功能") {
-                    Button(action: { selectedTab = .languages }) {
-                        Label("语言版本管理", systemImage: "terminal.fill")
-                    }
-                    .buttonStyle(.plain)
-                    .background(selectedTab == .languages ? Color.accentColor.opacity(0.2) : Color.clear)
-                    
-                    Button(action: { selectedTab = .profiles }) {
-                        Label("环境配置", systemImage: "doc.text.fill")
-                    }
-                    .buttonStyle(.plain)
-                    .background(selectedTab == .profiles ? Color.accentColor.opacity(0.2) : Color.clear)
-                }
+            VStack(spacing: 0) {
+                // 标题
+                Text("MacEnvSwitcher")
+                    .font(.headline)
+                    .padding()
                 
-                Section("系统") {
-                    Button(action: { selectedTab = .settings }) {
-                        Label("设置", systemImage: "gear")
+                Divider()
+                
+                List {
+                    Section(tr("Main Features")) {
+                        Button(action: { selectedTab = .languages }) {
+                            Label(tr("Language Management"), systemImage: "terminal.fill")
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 4)
+                        .background(selectedTab == .languages ? Color.accentColor.opacity(0.2) : Color.clear)
+                        .cornerRadius(6)
+                        
+                        Button(action: { selectedTab = .profiles }) {
+                            Label(tr("Environment Profiles"), systemImage: "doc.text.fill")
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 4)
+                        .background(selectedTab == .profiles ? Color.accentColor.opacity(0.2) : Color.clear)
+                        .cornerRadius(6)
                     }
-                    .buttonStyle(.plain)
-                    .background(selectedTab == .settings ? Color.accentColor.opacity(0.2) : Color.clear)
+                    
+                    Section(tr("System")) {
+                        Button(action: { selectedTab = .settings }) {
+                            Label(tr("Settings"), systemImage: "gear")
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 4)
+                        .background(selectedTab == .settings ? Color.accentColor.opacity(0.2) : Color.clear)
+                        .cornerRadius(6)
+                    }
                 }
+                .listStyle(SidebarListStyle())
             }
-            .listStyle(SidebarListStyle())
-            .frame(minWidth: 200)
+            .frame(width: 240)
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
             
             // 主内容区域
             Group {
@@ -140,8 +171,8 @@ struct MainAppView: View {
                     SettingsView(showingSetupWizard: $showingSetupWizard, checkOnStartup: $checkOnStartup)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationTitle("MacEnvSwitcher")
     }
 }
 

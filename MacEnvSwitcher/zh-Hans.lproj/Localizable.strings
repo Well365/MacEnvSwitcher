@@ -48,6 +48,35 @@
 "Are you sure you want to delete environment '\\(profile.name)'? This action cannot be undone." = "确定要删除环境'\(profile.name)'吗？此操作无法撤销。";
 "Cancel" = "取消";
 "Created: " = "创建时间：";
+
+// Main App
+"Main Features" = "主要功能";
+"Environment Profiles" = "环境配置";
+"Settings" = "设置";
+"System" = "系统";
+
+// Language Management
+"Language Management" = "语言版本管理";
+"Add Language" = "添加语言";
+"Select Language" = "请选择一个编程语言";
+"Search languages..." = "搜索语言...";
+"Loading available languages..." = "加载可用语言中...";
+"No languages available" = "无可用语言";
+"No matching languages" = "无匹配的语言";
+"Installing..." = "安装中...";
+"Installed" = "已安装";
+
+// Setup Wizard
+"Environment Setup Wizard" = "环境配置向导";
+"Installing required development tools for first-time use" = "首次使用需要安装必需的开发工具";
+"Checking system environment..." = "正在检查系统环境...";
+"Pending" = "待安装";
+"Error" = "错误";
+"Recheck All" = "重新检查全部";
+"Continue" = "继续使用";
+"Setup Wizard" = "设置向导";
+"Install" = "安装";
+"Manual Installation Steps" = "手动安装步骤";
 "Last used: " = "最后使用：";
 "Language Versions:" = "语言版本：";
 "Virtual Environments:" = "虚拟环境：";

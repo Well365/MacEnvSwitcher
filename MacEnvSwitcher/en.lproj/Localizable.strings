@@ -48,6 +48,34 @@
 "Are you sure you want to delete environment '\\(profile.name)'? This action cannot be undone." = "Are you sure you want to delete environment '\(profile.name)'? This action cannot be undone.";
 "Cancel" = "Cancel";
 "Created: " = "Created: ";
+
+// Main App
+"Main Features" = "Main Features";
+"Environment Profiles" = "Environment Profiles";
+"Settings" = "Settings";
+"System" = "System";
+
+// Language Management
+"Language Management" = "Language Management";
+"Add Language" = "Add Language";
+"Select Language" = "Select a programming language";
+"Search languages..." = "Search languages...";
+"Loading available languages..." = "Loading available languages...";
+"No languages available" = "No languages available";
+"No matching languages" = "No matching languages";
+"Installing..." = "Installing...";
+
+// Setup Wizard
+"Environment Setup Wizard" = "Environment Setup Wizard";
+"Installing required development tools for first-time use" = "Installing required development tools for first-time use";
+"Checking system environment..." = "Checking system environment...";
+"Pending" = "Pending";
+"Error" = "Error";
+"Recheck All" = "Recheck All";
+"Continue" = "Continue";
+"Setup Wizard" = "Setup Wizard";
+"Install" = "Install";
+"Manual Installation Steps" = "Manual Installation Steps";
 "Last used: " = "Last used: ";
 "Language Versions:" = "Language Versions:";
 "Virtual Environments:" = "Virtual Environments:";

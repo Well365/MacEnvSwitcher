@@ -14,11 +14,11 @@ struct SetupWizardView: View {
                         .font(.system(size: 48))
                         .foregroundColor(.blue)
                     
-                    Text("环境配置向导")
+                    Text(tr("Environment Setup Wizard"))
                         .font(.title)
                         .fontWeight(.bold)
                     
-                    Text("首次使用需要安装必需的开发工具")
+                    Text(tr("Installing required development tools for first-time use"))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     
@@ -27,7 +27,7 @@ struct SetupWizardView: View {
                         HStack(spacing: 8) {
                             ProgressView()
                                 .scaleEffect(0.7)
-                            Text("正在检查系统环境...")
+                            Text(tr("Checking system environment..."))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -38,21 +38,21 @@ struct SetupWizardView: View {
                                 icon: "checkmark.circle.fill",
                                 color: .green,
                                 count: viewModel.installedCount,
-                                label: "已安装"
+                                label: tr("Installed")
                             )
                             
                             StatusBadge(
                                 icon: "exclamationmark.circle.fill",
                                 color: .orange,
                                 count: viewModel.missingCount,
-                                label: "待安装"
+                                label: tr("Pending")
                             )
                             
                             StatusBadge(
                                 icon: "xmark.circle.fill",
                                 color: .red,
                                 count: viewModel.errorCount,
-                                label: "错误"
+                                label: tr("Error")
                             )
                         }
                         .padding(.top, 8)
@@ -81,7 +81,7 @@ struct SetupWizardView: View {
                     }) {
                         HStack {
                             Image(systemName: "arrow.clockwise")
-                            Text("重新检查全部")
+                            Text(tr("Recheck All"))
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -97,7 +97,7 @@ struct SetupWizardView: View {
                         }
                     }) {
                         HStack {
-                            Text("继续使用")
+                            Text(tr("Continue"))
                             Image(systemName: "arrow.right")
                         }
                         .frame(maxWidth: .infinity)
@@ -111,9 +111,9 @@ struct SetupWizardView: View {
                 }
                 .padding()
             }
-            .navigationTitle("设置向导")
-            .frame(minWidth: 900, minHeight: 700)
+            .navigationTitle(tr("Setup Wizard"))
         }
+        .frame(minWidth: 950, idealWidth: 1000, minHeight: 750, idealHeight: 800)
         .onAppear {
             viewModel.checkAllTools()
         }
@@ -183,7 +183,7 @@ struct RequiredToolCard: View {
                                 .scaleEffect(0.8)
                                 .frame(width: 80)
                         } else {
-                            Text("安装")
+                            Text(tr("Install"))
                                 .frame(width: 80)
                                 .padding(.vertical, 6)
                                 .background(Color.blue)
@@ -223,7 +223,7 @@ struct RequiredToolCard: View {
                     }
                     
                     if let manualSteps = tool.manualInstallSteps, !manualSteps.isEmpty {
-                        DisclosureGroup("手动安装步骤") {
+                        DisclosureGroup(tr("Manual Installation Steps")) {
                             VStack(alignment: .leading, spacing: 4) {
                                 ForEach(Array(manualSteps.enumerated()), id: \.offset) { index, step in
                                     Text("\(index + 1). \(step)")
@@ -380,10 +380,19 @@ class SetupWizardViewModel: ObservableObject {
     }
     
     func checkAllTools() {
+        DispatchQueue.main.async {
+            self.isChecking = true
+        }
+        
         DispatchQueue.global(qos: .userInitiated).async {
             for index in self.requiredTools.indices {
                 self.checkTool(at: index)
             }
+            
+            DispatchQueue.main.async {
+                self.isChecking = false
+            }
+            
             self.updateCanProceed()
         }
     }
@@ -391,7 +400,7 @@ class SetupWizardViewModel: ObservableObject {
     private func checkTool(at index: Int) {
         DispatchQueue.main.async {
             self.requiredTools[index].status = .checking
-            self.requiredTools[index].detailLog = "检查中..."
+            self.requiredTools[index].detailLog = "正在检查..."
         }
         
         let tool = requiredTools[index]
@@ -399,15 +408,15 @@ class SetupWizardViewModel: ObservableObject {
         
         switch tool.id {
         case "xcode":
-            result = detectors.check(.xcode)
+            result = checkXcode()
         case "clt":
-            result = detectors.check(.clt)
+            result = checkCommandLineTools()
         case "brew":
-            result = detectors.check(.brew)
+            result = checkHomebrew()
         case "oh-my-zsh":
-            result = detectors.check(.ohMyBash)
+            result = checkOhMyZsh()
         case "asdf":
-            result = detectors.check(.asdf)
+            result = checkAsdf()
         default:
             result = CheckResult(ok: false, log: "未知工具", tip: nil)
         }
@@ -419,6 +428,86 @@ class SetupWizardViewModel: ObservableObject {
                 self.requiredTools[index].installTip = tip
             }
         }
+    }
+    
+    // 详细的检查方法
+    private func checkXcode() -> CheckResult {
+        let result = detectors.check(.xcode)
+        if result.ok {
+            // 尝试获取版本和路径
+            let version = Shell.run("xcodebuild -version").out.trimmingCharacters(in: .whitespacesAndNewlines)
+            let path = Shell.run("xcode-select -p").out.trimmingCharacters(in: .whitespacesAndNewlines)
+            return CheckResult(
+                ok: true,
+                log: "✓ 已安装\n版本: \(version.components(separatedBy: "\n").first ?? "未知")\n路径: \(path)",
+                tip: nil
+            )
+        }
+        return CheckResult(ok: false, log: "✗ 未安装 - 需要从 App Store 安装", tip: "Xcode 是必需的开发工具")
+    }
+    
+    private func checkCommandLineTools() -> CheckResult {
+        let result = detectors.check(.clt)
+        if result.ok {
+            let version = Shell.run("xcode-select --version").out.trimmingCharacters(in: .whitespacesAndNewlines)
+            let path = Shell.run("xcode-select -p").out.trimmingCharacters(in: .whitespacesAndNewlines)
+            return CheckResult(
+                ok: true,
+                log: "✓ 已安装\n\(version)\n路径: \(path)",
+                tip: nil
+            )
+        }
+        return CheckResult(ok: false, log: "✗ 未安装 - 点击安装按钮进行安装", tip: "命令行工具包含编译器等必要工具")
+    }
+    
+    private func checkHomebrew() -> CheckResult {
+        let result = detectors.check(.brew)
+        if result.ok {
+            let version = Shell.run("brew --version").out.components(separatedBy: "\n").first ?? "未知版本"
+            let path = Shell.run("which brew").out.trimmingCharacters(in: .whitespacesAndNewlines)
+            return CheckResult(
+                ok: true,
+                log: "✓ 已安装\n版本: \(version)\n路径: \(path)",
+                tip: nil
+            )
+        }
+        return CheckResult(ok: false, log: "✗ 未安装 - 将通过官方脚本自动安装", tip: "Homebrew 是 macOS 最流行的包管理器")
+    }
+    
+    private func checkOhMyZsh() -> CheckResult {
+        let result = detectors.check(.ohMyBash)
+        if result.ok {
+            let omzPath = NSString(string: "~/.oh-my-zsh").expandingTildeInPath
+            let themeFile = NSString(string: "~/.zshrc").expandingTildeInPath
+            var theme = "未知"
+            if let content = try? String(contentsOfFile: themeFile) {
+                if let match = content.range(of: "ZSH_THEME=\"[^\"]+\"", options: .regularExpression) {
+                    theme = String(content[match]).replacingOccurrences(of: "ZSH_THEME=", with: "").replacingOccurrences(of: "\"", with: "")
+                }
+            }
+            return CheckResult(
+                ok: true,
+                log: "✓ 已安装\n路径: \(omzPath)\n主题: \(theme)",
+                tip: nil
+            )
+        }
+        return CheckResult(ok: false, log: "✗ 未安装 - 将通过官方脚本自动安装", tip: "Oh My Zsh 提供强大的终端配置")
+    }
+    
+    private func checkAsdf() -> CheckResult {
+        let result = detectors.check(.asdf)
+        if result.ok {
+            let version = Shell.run("asdf --version").out.trimmingCharacters(in: .whitespacesAndNewlines)
+            let path = Shell.run("which asdf").out.trimmingCharacters(in: .whitespacesAndNewlines)
+            let plugins = Shell.run("asdf plugin list").out.trimmingCharacters(in: .whitespacesAndNewlines)
+            let pluginList = plugins.isEmpty ? "无" : plugins.replacingOccurrences(of: "\n", with: ", ")
+            return CheckResult(
+                ok: true,
+                log: "✓ 已安装\n版本: \(version)\n路径: \(path)\n插件: \(pluginList)",
+                tip: nil
+            )
+        }
+        return CheckResult(ok: false, log: "✗ 未安装 - 将通过 Homebrew 自动安装", tip: "asdf 可以管理多种编程语言版本")
     }
     
     func installTool(_ tool: RequiredTool) {
