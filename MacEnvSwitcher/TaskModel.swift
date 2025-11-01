@@ -204,14 +204,48 @@ final class BootstrapViewModel: ObservableObject {
                 self?.state[.asdf]?.log = (self?.state[.asdf]?.log ?? "") + "\n[Switch Environment]\n" + log
                 self?.state[.asdf]?.tip = tip
                 self?.currentActiveProfile = ProfilesStore.getCurrentActiveProfile()
+                
                 // 重新加载配置文件以确保界面同步
                 self?.reloadProfiles()
-                // 执行全面检查
+                
+                // 执行全面检查以更新所有状态
                 self?.runFullCheck()
+                
+                // 重新加载版本管理器中的可用版本
+                self?.reloadVersionManager()
+                
                 // 发送通知以确保界面更新
                 self?.objectWillChange.send()
+                
+                // 显示成功消息
+                if ok {
+                    self?.showEnvironmentSwitchSuccess(profile: profile)
+                }
             }
         }
+    }
+    
+    // 重新加载版本管理器
+    private func reloadVersionManager() {
+        let versionManager = VersionManager.shared
+        // 清除缓存并重新加载所有任务的版本信息
+        for task in TaskID.allCases {
+            if task == .nodejs || task == .pythonAsdf || task == .ruby || task == .golang || task == .java || task == .rust {
+                versionManager.loadAvailableVersions(for: task)
+            }
+        }
+    }
+    
+    // 显示环境切换成功消息
+    private func showEnvironmentSwitchSuccess(profile: EnvironmentProfile) {
+        // 这里可以添加通知或其他UI反馈
+        print("✅ Successfully switched to environment: \(profile.name)")
+        
+        // 更新终端标题（如果支持）
+        let script = """
+        echo "\\033]0;MacEnvSwitcher - \(profile.name)\\007"
+        """
+        _ = Shell.run(script)
     }
     
     func deactivateCurrentEnvironment() {
