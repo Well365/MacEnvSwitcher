@@ -1,10 +1,47 @@
 import SwiftUI
+import AppKit
 
 // 语言管理主界面
 struct LanguageManagementView: View {
     @StateObject private var viewModel = LanguageManagementViewModel()
     @State private var selectedLanguage: ProgrammingLanguage?
     @State private var showingAddLanguage = false
+    
+    // 排序后的语言列表
+    var sortedLanguages: [ProgrammingLanguage] {
+        switch viewModel.sortMode {
+        case .uninstalled:
+            // 未安装的在前，然后按名称排序
+            // 判断标准：没有已安装版本 或 没有当前版本 的视为未安装
+            return viewModel.languages.sorted { lhs, rhs in
+                let lhsReallyInstalled = lhs.installedVersions.count > 0 || lhs.currentVersion != nil
+                let rhsReallyInstalled = rhs.installedVersions.count > 0 || rhs.currentVersion != nil
+                
+                if lhsReallyInstalled != rhsReallyInstalled {
+                    return !lhsReallyInstalled  // 未安装的在前
+                }
+                return lhs.displayName < rhs.displayName
+            }
+        case .installed:
+            // 已安装的在前，然后按名称排序
+            // 判断标准：有已安装版本 或 有当前版本 的视为已安装
+            return viewModel.languages.sorted { lhs, rhs in
+                let lhsReallyInstalled = lhs.installedVersions.count > 0 || lhs.currentVersion != nil
+                let rhsReallyInstalled = rhs.installedVersions.count > 0 || rhs.currentVersion != nil
+                
+                if lhsReallyInstalled != rhsReallyInstalled {
+                    return lhsReallyInstalled  // 已安装的在前
+                }
+                return lhs.displayName < rhs.displayName
+            }
+        case .name:
+            // 按名称排序
+            return viewModel.languages.sorted { $0.displayName < $1.displayName }
+        case .custom:
+            // 保持原有顺序（用户可以手动调整）
+            return viewModel.languages
+        }
+    }
     
     var body: some View {
         HStack(spacing: 0) {
@@ -47,15 +84,48 @@ struct LanguageManagementView: View {
                 
                 Divider()
                 
+                // 排序选项工具栏
+                HStack {
+                    Text(tr("Sort"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Picker("", selection: $viewModel.sortMode) {
+                        Text(tr("Uninstalled First")).tag(LanguageSortMode.uninstalled)
+                        Text(tr("Installed First")).tag(LanguageSortMode.installed)
+                        Text(tr("By Name")).tag(LanguageSortMode.name)
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 140)
+                    
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 6)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                
+                Divider()
+                
                 ScrollView {
                     VStack(spacing: 12) {
-                        ForEach(viewModel.languages) { language in
+                        ForEach(sortedLanguages) { language in
                             LanguageCard(
                                 language: language,
-                                isSelected: selectedLanguage?.id == language.id
+                                isSelected: selectedLanguage?.id == language.id,
+                                viewModel: viewModel
                             )
                             .onTapGesture {
+                                // 切换语言时，清除之前的加载状态
+                                if let previousLang = selectedLanguage, previousLang.id != language.id {
+                                    viewModel.clearLoadingStateIfNeeded(for: language.id)
+                                }
                                 selectedLanguage = language
+                            }
+                            .onChange(of: viewModel.languages.count) { _ in
+                                // 如果语言被删除，取消选择
+                                if let selectedId = selectedLanguage?.id, !viewModel.languages.contains(where: { $0.id == selectedId }) {
+                                    selectedLanguage = nil
+                                }
                             }
                         }
                     }
@@ -95,6 +165,8 @@ struct LanguageManagementView: View {
 struct LanguageCard: View {
     let language: ProgrammingLanguage
     let isSelected: Bool
+    @ObservedObject var viewModel: LanguageManagementViewModel
+    @State private var showDeleteAlert = false
     
     var body: some View {
         HStack(spacing: 12) {
@@ -120,11 +192,11 @@ struct LanguageCard: View {
                         .foregroundColor(.secondary)
                 } else if language.isInstalled && !language.installedVersions.isEmpty {
                     // 已安装但未设置全局版本
-                    Text("已安装（未设置全局）")
+                    Text(tr("Installed (not set as global)"))
                         .font(.caption)
                         .foregroundColor(.blue)
                 } else {
-                    Text("未安装")
+                    Text(tr("Not Installed"))
                         .font(.caption)
                         .foregroundColor(.orange)
                 }
@@ -132,11 +204,24 @@ struct LanguageCard: View {
             
             Spacer()
             
-            // 状态指示器
-            if language.isInstalled {
+            // 状态指示器：只有真正安装了版本（有已安装版本或当前版本）才显示绿色勾选
+            let reallyInstalled = language.installedVersions.count > 0 || language.currentVersion != nil
+            if reallyInstalled {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.green)
+                    .font(.system(size: 16))
             }
+            
+            // 删除按钮（鼠标悬停或选中时显示）
+            Button(action: {
+                showDeleteAlert = true
+            }) {
+                Image(systemName: "minus.circle.fill")
+                    .foregroundColor(.red)
+                    .font(.system(size: 16))
+            }
+            .buttonStyle(.plain)
+            .opacity(isSelected ? 1.0 : 0.3)
         }
         .padding()
         .background(isSelected ? Color.blue.opacity(0.1) : Color(NSColor.controlBackgroundColor))
@@ -145,6 +230,14 @@ struct LanguageCard: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
         )
+        .alert(tr("Delete Language"), isPresented: $showDeleteAlert) {
+            Button(tr("Cancel"), role: .cancel) { }
+            Button(tr("Delete"), role: .destructive) {
+                viewModel.removeLanguage(language)
+            }
+        } message: {
+            Text(String(format: tr("Are you sure you want to delete language '%@'?\nThis will remove it from the language list, but will not uninstall installed versions."), language.displayName))
+        }
     }
 }
 
@@ -161,6 +254,9 @@ struct LanguageDetailView: View {
     @State private var successMessage: String = ""
     @State private var showSystemVersionAlert: Bool = false
     @State private var systemVersionMessage: String = ""
+    @State private var versionLoadingStartTime: Date? = nil
+    @State private var showVersionLoadingTimeout: Bool = false
+    @State private var showTerminalCommandCopied: Bool = false
     
     // 直接从 viewModel.languages 获取最新的语言数据
     // SwiftUI 会自动响应 @Published 属性的变化
@@ -201,18 +297,18 @@ struct LanguageDetailView: View {
                 
                 // 当前版本信息
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("当前全局版本")
+                    Text(tr("Current Global Version"))
                         .font(.headline)
                     
                     if let lang = currentLanguage, let currentVersion = lang.currentVersion {
                         VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text(currentVersion)
-                                    .font(.title3)
-                                    .fontWeight(.medium)
-                                
-                                Spacer()
-                                
+                        HStack {
+                            Text(currentVersion)
+                                .font(.title3)
+                                .fontWeight(.medium)
+                            
+                            Spacer()
+                            
                                 // 显示版本来源
                                 Text("(\(lang.versionSource.displayName))")
                                     .font(.caption)
@@ -222,7 +318,7 @@ struct LanguageDetailView: View {
                                     .background(Color.secondary.opacity(0.2))
                                     .cornerRadius(4)
                                 
-                                Button("查看详情") {
+                            Button(tr("View Details")) {
                                     viewModel.showVersionDetails(language: lang, version: currentVersion)
                                 }
                                 .font(.caption)
@@ -235,7 +331,7 @@ struct LanguageDetailView: View {
                                         Image(systemName: "checkmark.circle.fill")
                                             .foregroundColor(.green)
                                             .font(.caption)
-                                        Text("asdf 全局配置已设置")
+                                        Text(tr("asdf global configuration set"))
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
@@ -244,7 +340,7 @@ struct LanguageDetailView: View {
                                         Image(systemName: "exclamationmark.triangle.fill")
                                             .foregroundColor(.orange)
                                             .font(.caption)
-                                        Text("当前使用版本与 asdf 全局配置不一致")
+                                        Text(tr("Current version differs from asdf global configuration"))
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
@@ -254,7 +350,7 @@ struct LanguageDetailView: View {
                                     Image(systemName: "info.circle.fill")
                                         .foregroundColor(.blue)
                                         .font(.caption)
-                                    Text("asdf 已配置但当前使用 \(lang.versionSource.displayName) 版本")
+                                    Text(String(format: tr("asdf configured but currently using %@ version"), lang.versionSource.displayName))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -273,7 +369,7 @@ struct LanguageDetailView: View {
                         .background(Color.green.opacity(0.1))
                         .cornerRadius(8)
                     } else {
-                        Text("未设置全局版本")
+                        Text(tr("No global version set"))
                             .foregroundColor(.orange)
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -287,7 +383,7 @@ struct LanguageDetailView: View {
                 // 已安装版本列表
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("已安装版本")
+                        Text(tr("Installed Versions"))
                             .font(.headline)
                         
                         Spacer()
@@ -303,17 +399,17 @@ struct LanguageDetailView: View {
                     
                     if let lang = currentLanguage {
                         if lang.installedVersions.isEmpty {
-                            Text("尚未安装任何版本")
-                                .foregroundColor(.secondary)
-                                .padding()
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .cornerRadius(8)
-                        } else {
-                            LazyVStack(spacing: 8) {
+                        Text(tr("No versions installed yet"))
+                            .foregroundColor(.secondary)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(8)
+                    } else {
+                        LazyVStack(spacing: 8) {
                                 ForEach(lang.installedVersions, id: \.self) { version in
-                                    InstalledVersionRow(
-                                        version: version,
+                                InstalledVersionRow(
+                                    version: version,
                                         isCurrent: version == lang.currentVersion,
                                         isAsdfVersion: lang.asdfInstalledVersions.contains(version),
                                         onSetGlobal: { completion in
@@ -323,9 +419,9 @@ struct LanguageDetailView: View {
                                                 let isSystemVersion = !lang.asdfInstalledVersions.contains(version)
                                                 if isSystemVersion {
                                                     viewModel.setSystemVersionAsGlobal(language: currentLang, version: version) { success, message in
-                                                        if success {
+                                            if success {
                                                             successMessage = "已成功将系统版本 \(version) 设置为全局版本"
-                                                            showSuccessAlert = true
+                                                showSuccessAlert = true
                                                             
                                                             // 延迟刷新完整状态
                                                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
@@ -358,14 +454,14 @@ struct LanguageDetailView: View {
                                                 }
                                             } else {
                                                 completion(false)
-                                            }
-                                        },
-                                        onUninstall: {
+                                        }
+                                    },
+                                    onUninstall: {
                                             if let currentLang = currentLanguage {
                                                 viewModel.uninstallVersion(language: currentLang, version: version)
                                             }
-                                        }
-                                    )
+                                    }
+                                )
                                 }
                             }
                         }
@@ -376,27 +472,138 @@ struct LanguageDetailView: View {
                 
                 // 安装新版本
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("安装新版本")
+                    Text(tr("Install New Version"))
                         .font(.headline)
                     
                     // 版本选择方式
-                    Picker("选择方式", selection: $viewModel.versionSelectionMode) {
-                        Text("从列表选择").tag(VersionSelectionMode.fromList)
-                        Text("手动输入").tag(VersionSelectionMode.manual)
+                    Picker("", selection: $viewModel.versionSelectionMode) {
+                        Text(tr("Select from List")).tag(VersionSelectionMode.fromList)
+                        Text(tr("Manual Input")).tag(VersionSelectionMode.manual)
                     }
                     .pickerStyle(SegmentedPickerStyle())
                     
                     if viewModel.versionSelectionMode == .fromList {
                         // 可用版本下拉列表
                         VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("可用版本")
+                            HStack(spacing: 16) {
+                                // "可用版本"标签
+                                Text(tr("Available Versions"))
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
+                                    .frame(minWidth: 100, alignment: .leading)
+                                
+                                // 版本选择框 - 紧跟在标签后面，有足够空间
+                                if let lang = currentLanguage {
+                                    // 检查是否应该显示加载状态
+                                    // 如果版本列表为空，且没有超时，则显示加载动画
+                                    let isLoading = lang.availableVersions.isEmpty && !showVersionLoadingTimeout
+                                    
+                                    if isLoading {
+                                        HStack {
+                                            ProgressView()
+                                                .scaleEffect(0.8)
+                                            Text(tr("Loading version list..."))
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .frame(maxWidth: 450)
+                                        .onAppear {
+                                            // 记录加载开始时间
+                                            if versionLoadingStartTime == nil {
+                                                versionLoadingStartTime = Date()
+                                                let currentLangId = lang.id
+                                                
+                                                // 5秒后如果还在加载，停止显示加载动画
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                                                    // 检查当前语言是否仍然是同一个，且版本列表仍为空
+                                                    if let currentLang = self.currentLanguage,
+                                                       currentLang.id == currentLangId,
+                                                       currentLang.availableVersions.isEmpty {
+                                                        self.showVersionLoadingTimeout = true
+                                                        // 如果超时后还是没有版本，显示预设版本
+                                                        if let index = self.viewModel.languages.firstIndex(where: { $0.id == currentLangId }) {
+                                                            let predefinedVersions = SoftConfig.getPredefinedVersions(for: currentLangId)
+                                                            if !predefinedVersions.isEmpty {
+                                                                self.viewModel.languages[index].availableVersions = predefinedVersions
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        // 显示版本选择器
+                                        let versionsToShow = lang.availableVersions.isEmpty 
+                                            ? SoftConfig.getPredefinedVersions(for: lang.id)
+                                            : lang.availableVersions
+                                        
+                                        if !versionsToShow.isEmpty {
+                                            Picker("", selection: $selectedVersion) {
+                                                Text(tr("Select Version...")).tag("")
+                                                ForEach(versionsToShow, id: \.self) { version in
+                                                    Text(version).tag(version)
+                                                }
+                                            }
+                                            .labelsHidden()
+                                            .frame(width: 450, height: 44) // 增加宽度，提供足够空间
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                        } else {
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                Text(tr("No available versions"))
+                                                    .foregroundColor(.secondary)
+                                                
+                                                // 添加提示信息
+                                                Text("💡 \(tr("Tip:"))")
+                                                    .font(.caption)
+                                                    .foregroundColor(.orange)
+                                                
+                                                // 针对 npm 的特殊提示
+                                                if lang.id == "npm" {
+                                                    Text(tr("npm usually comes with Node.js and doesn't need separate installation."))
+                                                        .font(.caption2)
+                                                        .foregroundColor(.secondary)
+                                                    Text(tr("You can:"))
+                                                        .font(.caption2)
+                                                        .foregroundColor(.secondary)
+                                                    Text(tr("1. Install Node.js, npm will be included automatically"))
+                                                        .font(.caption2)
+                                                        .foregroundColor(.secondary)
+                                                    Text(tr("2. Use \"Manual Input\" to enter version number"))
+                                                        .font(.caption2)
+                                                        .foregroundColor(.secondary)
+                                                    Text(tr("3. Check if Node.js is installed: node --version"))
+                                                        .font(.system(.caption2, design: .monospaced))
+                                                        .foregroundColor(.secondary)
+                                                } else {
+                                                    Text(tr("This language may not have a predefined version list, or version loading failed."))
+                                                        .font(.caption2)
+                                                        .foregroundColor(.secondary)
+                                                    Text(tr("You can:"))
+                                                        .font(.caption2)
+                                                        .foregroundColor(.secondary)
+                                                    Text(tr("1. Click \"Refresh List\" to reload versions"))
+                                                        .font(.caption2)
+                                                        .foregroundColor(.secondary)
+                                                    Text(tr("2. Use \"Manual Input\" to enter version number"))
+                                                        .font(.caption2)
+                                                        .foregroundColor(.secondary)
+                                                    Text(String(format: tr("3. Install manually in terminal: %@"), getInstallCommand(for: lang.id, version: "latest")))
+                                                        .font(.system(.caption2, design: .monospaced))
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
+                                            .frame(maxWidth: 450, alignment: .leading)
+                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, 8)
+                                            .background(Color.orange.opacity(0.1))
+                                            .cornerRadius(6)
+                                        }
+                                    }
+                                }
                                 
                                 Spacer()
                                 
-                                Button("刷新列表") {
+                                Button(tr("Refresh List")) {
                                     if let lang = currentLanguage {
                                         viewModel.loadAvailableVersions(language: lang)
                                     }
@@ -404,38 +611,82 @@ struct LanguageDetailView: View {
                                 .font(.caption)
                             }
                             
-                            if let lang = currentLanguage {
-                                if lang.availableVersions.isEmpty {
-                                    HStack {
-                                        ProgressView()
-                                            .scaleEffect(0.8)
-                                        Text("加载版本列表...")
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .padding()
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                } else {
-                                    Picker("选择版本", selection: $selectedVersion) {
-                                        Text("选择版本...").tag("")
-                                        ForEach(lang.availableVersions, id: \.self) { version in
-                                            Text(version).tag(version)
+                            // 安装提示和终端按钮 - 移到选择框下方
+                            if let lang = currentLanguage, !lang.availableVersions.isEmpty || !SoftConfig.getPredefinedVersions(for: lang.id).isEmpty {
+                                HStack(spacing: 8) {
+                                    Text(tr("Tip: If installation fails, please check the official website for installation tutorials or try entering commands in the terminal"))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                    
+                                    Spacer()
+                                    
+                                    // 命令显示和复制按钮
+                                    HStack(spacing: 4) {
+                                        let installCommand = getInstallCommand(for: lang.id, version: selectedVersion.isEmpty ? "latest" : selectedVersion)
+                                        
+                                        Text(installCommand)
+                                            .font(.system(.caption, design: .monospaced))
+                                            .foregroundColor(.primary)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Color(NSColor.controlBackgroundColor))
+                                            .cornerRadius(4)
+                                            .onTapGesture {
+                                                // 点击复制到剪贴板
+                                                copyToClipboard(installCommand)
+                                                showTerminalCommandCopied = true
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                                    showTerminalCommandCopied = false
+                                                }
+                                            }
+                                        
+                                        Button(action: {
+                                            let cmd = getInstallCommand(for: lang.id, version: selectedVersion.isEmpty ? "latest" : selectedVersion)
+                                            copyToClipboard(cmd)
+                                            showTerminalCommandCopied = true
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                                showTerminalCommandCopied = false
+                                            }
+                                        }) {
+                                            Image(systemName: showTerminalCommandCopied ? "checkmark.circle.fill" : "doc.on.doc")
+                                                .font(.caption)
+                                                .foregroundColor(.blue)
                                         }
+                                        .buttonStyle(PlainButtonStyle())
+                                        
+                                        Button(action: {
+                                            let cmd = getInstallCommand(for: lang.id, version: selectedVersion.isEmpty ? "latest" : selectedVersion)
+                                            openTerminalWithCommand(cmd)
+                                        }) {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "terminal")
+                                                Text(tr("Open Terminal"))
+                                            }
+                                            .font(.caption)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Color.blue.opacity(0.1))
+                                            .foregroundColor(.blue)
+                                            .cornerRadius(4)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
                                     }
-                                    .labelsHidden()
                                 }
+                                .padding(.top, 4)
                             }
                         }
                     } else {
                         // 手动输入版本号
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("输入版本号")
+                            Text(tr("Enter Version Number"))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                             
                             TextField("例如: 3.12.0", text: $customVersionInput)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                             
-                            Text("提示: 请输入完整的版本号，如 3.12.0 或 latest")
+                            Text(tr("Tip: Please enter the full version number, such as 3.12.0 or latest"))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -452,10 +703,10 @@ struct LanguageDetailView: View {
                             if isInstalling {
                                 ProgressView()
                                     .scaleEffect(0.8)
-                                Text("安装中...")
+                                Text(tr("Installing..."))
                             } else {
                                 Image(systemName: "arrow.down.circle.fill")
-                                Text("安装版本")
+                                Text(tr("Install Version"))
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -484,23 +735,136 @@ struct LanguageDetailView: View {
             .padding()
         }
         .frame(minWidth: 500)
-        .alert("操作成功", isPresented: $showSuccessAlert) {
-            Button("确定", role: .cancel) { }
+        .alert(tr("Operation Successful"), isPresented: $showSuccessAlert) {
+            Button(tr("OK"), role: .cancel) { }
         } message: {
             Text(successMessage)
         }
-        .alert("系统版本提示", isPresented: $showSystemVersionAlert) {
-            Button("确定", role: .cancel) { }
+        .alert(tr("System Version Alert"), isPresented: $showSystemVersionAlert) {
+            Button(tr("OK"), role: .cancel) { }
         } message: {
             Text(systemVersionMessage)
         }
         .onAppear {
             if let lang = currentLanguage {
+                // 如果切换了语言，清除之前的加载状态
+                viewModel.clearLoadingStateIfNeeded(for: lang.id)
+                // 重置加载状态
+                versionLoadingStartTime = nil
+                showVersionLoadingTimeout = false
                 viewModel.loadAvailableVersions(language: lang)
             }
         }
+        .onChange(of: currentLanguage?.id) { _ in
+            // 语言切换时重置加载状态
+            versionLoadingStartTime = nil
+            showVersionLoadingTimeout = false
+        }
         // SwiftUI 会自动响应 @ObservedObject 中 @Published 属性的变化
         // 不需要额外的 onChange 监听
+    }
+    
+    /// 获取安装命令
+    private func getInstallCommand(for languageId: String, version: String) -> String {
+        // 根据语言类型生成不同的安装命令
+        switch languageId {
+        case "php":
+            if version == "latest" || version.isEmpty {
+                return "brew install php"
+            } else {
+                let brewVersion = extractBrewPhpVersion(from: version) ?? "8.4"
+                return "brew install php@\(brewVersion)"
+            }
+        case "fastlane":
+            if version == "latest" || version.isEmpty {
+                return "brew install fastlane"
+            } else {
+                return "gem install fastlane -v \(version) -NV"
+            }
+        case "nodejs":
+            if version == "latest" || version.isEmpty {
+                return "brew install node"
+            } else {
+                return "asdf install nodejs \(version)"
+            }
+        default:
+            // 其他语言优先使用 asdf
+            if version == "latest" || version.isEmpty {
+                return "brew install \(languageId)"
+            } else {
+                return "asdf install \(languageId) \(version)"
+            }
+        }
+    }
+    
+    /// 提取 Homebrew PHP 版本格式
+    private func extractBrewPhpVersion(from version: String) -> String? {
+        if let match = version.range(of: #"^(\d+\.\d+)"#, options: .regularExpression) {
+            return String(version[match])
+        }
+        return nil
+    }
+    
+    /// 复制到剪贴板
+    private func copyToClipboard(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
+    
+    /// 打开终端并执行命令
+    private func openTerminalWithCommand(_ command: String) {
+        // 优先尝试使用 iTerm2
+        let iTermCheck = Shell.run("osascript -e 'tell application \"System Events\" to return exists process \"iTerm2\"'")
+        let isiTermRunning = iTermCheck.out.contains("true")
+        
+        let iTermInstalled = Shell.run("[ -d /Applications/iTerm.app ] && echo YES || echo NO")
+        let hasiTerm = iTermInstalled.out.contains("YES")
+        
+        if hasiTerm || isiTermRunning {
+            // 使用 iTerm2
+            let script = """
+            tell application "iTerm2"
+                if is running then
+                    tell current window
+                        create tab with default profile
+                        tell current session of current tab
+                            write text "\(command)"
+                        end tell
+                    end tell
+                else
+                    activate
+                    tell current window
+                        tell current session of current tab
+                            write text "\(command)"
+                        end tell
+                    end tell
+                end if
+            end tell
+            """
+            
+            let result = Shell.run("osascript -e '\(script)'")
+            if result.code != 0 {
+                // 如果 iTerm2 失败，尝试系统终端
+                openSystemTerminalWithCommand(command)
+            }
+        } else {
+            // 使用系统默认终端
+            openSystemTerminalWithCommand(command)
+        }
+    }
+    
+    /// 打开系统默认终端并执行命令
+    private func openSystemTerminalWithCommand(_ command: String) {
+        // 使用 AppleScript 打开 Terminal.app 并执行命令
+        let script = """
+        tell application "Terminal"
+            activate
+            do script "\(command)"
+        end tell
+        """
+        
+        _ = Shell.run("osascript -e '\(script)'")
     }
     
     private var canInstall: Bool {
@@ -563,7 +927,7 @@ struct InstalledVersionRow: View {
             
             // 显示版本来源标签
             if !isAsdfVersion {
-                Text("(系统)")
+                Text(tr("(System)"))
                     .font(.caption2)
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 4)
@@ -573,7 +937,7 @@ struct InstalledVersionRow: View {
             }
             
             if isCurrent {
-                Text("(全局)")
+                Text(tr("(Global)"))
                     .font(.caption)
                     .foregroundColor(.white)
                     .padding(.horizontal, 8)
@@ -587,7 +951,7 @@ struct InstalledVersionRow: View {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.green)
                         .font(.caption)
-                    Text("已设置")
+                    Text(tr("Set"))
                         .font(.caption)
                         .foregroundColor(.green)
                 }
@@ -599,7 +963,7 @@ struct InstalledVersionRow: View {
             if !isCurrent && !showSuccessToast {
                 Button(action: {
                     withAnimation {
-                        isSettingGlobal = true
+                    isSettingGlobal = true
                     }
                     onSetGlobal { success in
                         DispatchQueue.main.async {
@@ -625,7 +989,7 @@ struct InstalledVersionRow: View {
                         } else {
                             Image(systemName: "globe")
                         }
-                        Text(isSettingGlobal ? "设置中..." : "设为全局")
+                        Text(isSettingGlobal ? tr("Setting...") : tr("Set as Global"))
                     }
                 }
                 .font(.caption)
@@ -634,27 +998,27 @@ struct InstalledVersionRow: View {
             
             // 只有 asdf 版本才能卸载，系统版本只能设为全局
             if isAsdfVersion && !showSuccessToast {
-                Button(action: {
-                    showingUninstallAlert = true
-                }) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                }
-                .buttonStyle(PlainButtonStyle())
+            Button(action: {
+                showingUninstallAlert = true
+            }) {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(PlainButtonStyle())
             }
         }
         .padding()
         .background(isCurrent ? Color.green.opacity(0.1) : Color(NSColor.controlBackgroundColor))
         .cornerRadius(8)
-        .alert("确认卸载", isPresented: $showingUninstallAlert) {
-            Button("取消", role: .cancel) { }
-            Button("卸载", role: .destructive) {
-                onUninstall()
+            .alert(tr("Confirm Uninstall"), isPresented: $showingUninstallAlert) {
+                Button(tr("Cancel"), role: .cancel) { }
+                Button(tr("Uninstall"), role: .destructive) {
+                    onUninstall()
+                }
+            } message: {
+                Text(String(format: tr("Are you sure you want to uninstall version %@?"), version))
             }
-        } message: {
-            Text("确定要卸载版本 \(version) 吗？")
         }
-    }
 }
 
 // 版本来源类型
@@ -669,9 +1033,9 @@ enum VersionSource: Equatable {
         switch self {
         case .asdf: return "asdf"
         case .homebrew: return "Homebrew"
-        case .system: return "系统"
-        case .other: return "其他"
-        case .notInstalled: return "未安装"
+        case .system: return tr("System")
+        case .other: return tr("Other")
+        case .notInstalled: return tr("Not Installed")
         }
     }
 }
@@ -712,13 +1076,24 @@ enum VersionSelectionMode {
     case manual
 }
 
+enum LanguageSortMode {
+    case name          // 按名称排序
+    case installed     // 已安装的在前
+    case uninstalled   // 未安装的在前（默认）
+    case custom        // 自定义排序（保留用户手动调整的顺序）
+}
+
 // 视图模型
 class LanguageManagementViewModel: ObservableObject {
     @Published var languages: [ProgrammingLanguage] = []
     @Published var versionSelectionMode: VersionSelectionMode = .fromList
+    @Published var sortMode: LanguageSortMode = .uninstalled  // 默认未安装的在前
     
     private let installers = Installers()
     private let detectors = Detectors()
+    
+    // 跟踪正在加载版本列表的语言ID，避免重复加载和状态混乱
+    private var loadingVersionsForLanguageId: String? = nil
     
     func loadLanguages() {
         languages = [
@@ -820,6 +1195,28 @@ class LanguageManagementViewModel: ObservableObject {
                 installedVersions: [],
                 asdfInstalledVersions: [],
                 availableVersions: []
+            ),
+            ProgrammingLanguage(
+                id: "gradle",
+                displayName: "Gradle",
+                description: "强大的构建自动化工具",
+                icon: "hammer.fill",
+                color: .green,
+                isInstalled: false,
+                installedVersions: [],
+                asdfInstalledVersions: [],
+                availableVersions: []
+            ),
+            ProgrammingLanguage(
+                id: "fastlane",
+                displayName: "Fastlane",
+                description: "iOS 和 Android 应用自动化构建和发布工具",
+                icon: "speedometer",
+                color: .blue,
+                isInstalled: false,
+                installedVersions: [],
+                asdfInstalledVersions: [],
+                availableVersions: []
             )
         ]
         
@@ -865,21 +1262,71 @@ class LanguageManagementViewModel: ObservableObject {
                 }
             }
             
+            // 对于 Fastlane，额外检测 Homebrew 和 gem 安装的版本
+            if language.id == "fastlane" {
+                // 检查 Homebrew 安装
+                let brewCheck = Shell.run("brew list --formula fastlane 2>/dev/null | head -1")
+                if brewCheck.code == 0 {
+                    // 通过 fastlane --version 获取版本
+                    let versionResult = Shell.run("fastlane --version 2>/dev/null | head -1")
+                    if versionResult.code == 0, !versionResult.out.isEmpty {
+                        let output = versionResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                        // 提取版本号 fastlane 2.228.0 -> 2.228.0
+                        if let versionMatch = output.range(of: #"fastlane (\d+\.\d+\.\d+)"#, options: .regularExpression) {
+                            let fullMatch = String(output[versionMatch])
+                            let version = fullMatch.replacingOccurrences(of: "fastlane ", with: "")
+                            if !installedVersions.contains(version) {
+                                installedVersions.append(version)
+                                print("🔍 [DEBUG] 检测到 Homebrew 安装的 fastlane: \(version)")
+                            }
+                        } else if let versionMatch = output.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
+                            let version = String(output[versionMatch])
+                            if !installedVersions.contains(version) {
+                                installedVersions.append(version)
+                                print("🔍 [DEBUG] 检测到 Homebrew 安装的 fastlane: \(version)")
+                            }
+                        }
+                    }
+                }
+                
+                // 检查 gem 安装
+                let gemCheck = Shell.run("gem list fastlane --local 2>/dev/null | grep fastlane")
+                if gemCheck.code == 0, !gemCheck.out.isEmpty {
+                    // 解析 gem list 输出，格式通常是: fastlane (2.228.0)
+                    let output = gemCheck.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if let versionMatch = output.range(of: #"fastlane \(([^)]+)\)"#, options: .regularExpression) {
+                        let fullMatch = String(output[versionMatch])
+                        let version = fullMatch.replacingOccurrences(of: "fastlane (", with: "").replacingOccurrences(of: ")", with: "")
+                        // 可能包含多个版本，取第一个
+                        let firstVersion = version.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? version
+                        if !installedVersions.contains(firstVersion) {
+                            installedVersions.append(firstVersion)
+                            print("🔍 [DEBUG] 检测到 gem 安装的 fastlane: \(firstVersion)")
+                        }
+                    }
+                }
+            }
+            
             // 对于其他语言，也尝试检测系统安装的版本
             // 通过检测系统路径中的可执行文件来判断
-            if installedVersions.isEmpty {
-                if let systemVersion = self.detectSystemInstalledVersion(languageId: language.id) {
+            // 即使 asdf 插件已安装但没有版本，也应该检测系统版本
+            if let systemVersion = LanguageDetector.detectSystemInstalledVersion(languageId: language.id) {
+                // 如果系统版本不在列表中，添加到列表
+                if !installedVersions.contains(systemVersion) {
                     installedVersions.append(systemVersion)
                     print("🔍 [DEBUG] 检测到系统安装的 \(language.id): \(systemVersion)")
                 }
             }
             
-            // 4. 检测当前实际使用的版本和来源
-            var (currentVersion, versionSource, versionPath) = self.detectCurrentVersionAndSource(
+            // 4. 检测当前实际使用的版本和来源（使用统一的 LanguageDetector）
+            let detectionResult = LanguageDetector.detectCurrentVersionAndSource(
                 languageId: language.id,
                 asdfPluginInstalled: asdfPluginInstalled,
                 asdfGlobalVersion: asdfGlobalVersion
             )
+            var currentVersion = detectionResult.version
+            var versionSource = detectionResult.source
+            var versionPath = detectionResult.path
             
             // 5. 检查是否存在系统版本配置（在 .zshrc 等文件中）
             let hasSystemVersionConfig = ShellConfigManager.hasSystemVersionConfig(languageId: language.id)
@@ -911,9 +1358,9 @@ class LanguageManagementViewModel: ObservableObject {
             }
             
             // 9. 确定是否已安装（包括非 asdf 方式）
-            // 只要有已安装版本（asdf 或系统），就认为已安装，即使没有设置全局版本
+            // 只有真正安装了版本（有已安装版本或当前版本）才认为是已安装
+            // 仅仅有 asdf 插件但没有安装任何版本，不算已安装
             let isInstalled = installedVersions.count > 0 || 
-                             asdfPluginInstalled ||
                              (currentVersion != nil && versionSource != .notInstalled)
             
             print("📊 [DEBUG] 安装状态判断: \(language.id) - isInstalled=\(isInstalled), installedVersions.count=\(installedVersions.count), asdfPluginInstalled=\(asdfPluginInstalled)")
@@ -958,8 +1405,23 @@ class LanguageManagementViewModel: ObservableObject {
         }
     }
     
-    /// 检测当前版本和来源
+    // 注意：检测逻辑已迁移到 LanguageDetector 类
+    // 保留此方法作为兼容层，但实际已使用 LanguageDetector
     private func detectCurrentVersionAndSource(
+        languageId: String,
+        asdfPluginInstalled: Bool,
+        asdfGlobalVersion: String?
+    ) -> (version: String?, source: VersionSource, path: String?) {
+        let result = LanguageDetector.detectCurrentVersionAndSource(
+            languageId: languageId,
+            asdfPluginInstalled: asdfPluginInstalled,
+            asdfGlobalVersion: asdfGlobalVersion
+        )
+        return (result.version, result.source, result.path)
+    }
+    
+    // 保留旧的完整实现作为参考（将被删除）
+    private func detectCurrentVersionAndSource_OLD(
         languageId: String,
         asdfPluginInstalled: Bool,
         asdfGlobalVersion: String?
@@ -984,7 +1446,8 @@ class LanguageManagementViewModel: ObservableObject {
         var versionSource: VersionSource = .notInstalled
         
         // 优先使用 asdfGlobalVersion（从 ~/.tool-versions 读取的）
-        if let globalVer = asdfGlobalVersion, asdfPluginInstalled {
+        // 但只有当确实有 asdf 版本时才使用，否则继续检测系统版本
+        if let globalVer = asdfGlobalVersion, asdfPluginInstalled, !globalVer.isEmpty {
             versionSource = .asdf
             currentVersion = globalVer
         } else if let path = versionPath {
@@ -1044,9 +1507,44 @@ class LanguageManagementViewModel: ObservableObject {
             }
         } else {
             // 即使找不到路径，如果 asdf 有全局配置，也算作已配置（可能 shell 未正确加载）
-            if asdfPluginInstalled, let globalVer = asdfGlobalVersion {
+            // 但只有当配置不为空时才使用
+            if asdfPluginInstalled, let globalVer = asdfGlobalVersion, !globalVer.isEmpty {
                 versionSource = .asdf
                 currentVersion = globalVer
+            } else if languageId == "php" {
+                // 如果 asdf 没有配置，尝试检测系统版本（即使 which 找不到，也可能在其他路径）
+                // 对于 PHP，可以尝试常见的安装路径
+                let homebrewPhpPaths = [
+                    "/opt/homebrew/opt/php/bin/php",
+                    "/usr/local/opt/php/bin/php",
+                    "/opt/homebrew/bin/php",
+                    "/usr/local/bin/php",
+                    "/usr/bin/php"
+                ]
+                
+                for phpPath in homebrewPhpPaths {
+                    let checkResult = Shell.run("test -f '\(phpPath)' && '\(phpPath)' --version 2>/dev/null | head -1")
+                    if checkResult.code == 0, !checkResult.out.isEmpty {
+                        // 判断路径类型
+                        if phpPath.contains("/opt/homebrew/") || phpPath.contains("/usr/local/opt/") {
+                            versionSource = .homebrew
+                        } else {
+                            versionSource = .system
+                        }
+                        
+                        // 提取版本号
+                        let output = checkResult.out
+                        if let match = output.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
+                            currentVersion = String(output[match])
+                        } else if let match = output.range(of: #"\d+\.\d+"#, options: .regularExpression) {
+                            currentVersion = String(output[match])
+                        }
+                        
+                        if currentVersion != nil {
+                            break
+                        }
+                    }
+                }
             }
         }
         
@@ -1063,6 +1561,30 @@ class LanguageManagementViewModel: ObservableObject {
             }
         }()
         
+        // 对于 PHP，优先检查常见的 Homebrew 安装路径
+        if languageId == "php" {
+            let homebrewPhpPaths = [
+                "/opt/homebrew/opt/php/bin/php",
+                "/usr/local/opt/php/bin/php",
+                "/opt/homebrew/bin/php",
+                "/usr/local/bin/php",
+                "/usr/bin/php"
+            ]
+            
+            for phpPath in homebrewPhpPaths {
+                let checkResult = Shell.run("test -f '\(phpPath)' && '\(phpPath)' --version 2>/dev/null | head -1")
+                if checkResult.code == 0, !checkResult.out.isEmpty {
+                    // 提取版本号
+                    let output = checkResult.out
+                    if let match = output.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
+                        return String(output[match])
+                    } else if let match = output.range(of: #"\d+\.\d+"#, options: .regularExpression) {
+                        return String(output[match])
+                    }
+                }
+            }
+        }
+        
         // 检查可执行文件是否存在（排除 asdf shims）
         let whichResult = Shell.run("which \(toolName) 2>/dev/null")
         guard whichResult.code == 0, !whichResult.out.isEmpty else {
@@ -1072,7 +1594,7 @@ class LanguageManagementViewModel: ObservableObject {
         let executablePath = whichResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // 如果是 asdf shim，不算系统安装
-        if executablePath.contains("/.asdf/shims/") {
+        if executablePath.contains("/.asdf/shims/") || executablePath.contains("/.asdf/installs/") {
             return nil
         }
         
@@ -1091,7 +1613,8 @@ class LanguageManagementViewModel: ObservableObject {
             "rust": "rustc --version",
             "php": "php --version",
             "scala": "scala -version 2>&1",
-            "kotlin": "kotlin -version 2>&1"
+            "kotlin": "kotlin -version 2>&1",
+            "gradle": "gradle --version 2>&1 | head -1"
         ]
         
         guard let command = versionCommands[languageId] ?? versionCommands[toolName] else {
@@ -1154,42 +1677,489 @@ class LanguageManagementViewModel: ObservableObject {
         return nil
     }
     
+    /// 清除加载状态（如果需要）
+    /// 当切换语言时调用，确保新语言可以开始加载
+    func clearLoadingStateIfNeeded(for languageId: String) {
+        // 如果当前正在加载的语言不是新选中的语言，清除加载状态
+        if let loadingId = loadingVersionsForLanguageId, loadingId != languageId {
+            print("🔄 [DEBUG] 切换语言：清除 \(loadingId) 的加载状态，准备加载 \(languageId)")
+            loadingVersionsForLanguageId = nil
+        }
+    }
+    
+    /// PHP 安装的多种方式回退机制
+    /// 1. 首先尝试 asdf 安装
+    /// 2. 如果失败，尝试通过 Homebrew 安装指定版本
+    /// 3. 最后考虑源码编译（通过 asdf，但会显示更详细的错误信息）
+    private func installPhpWithFallback(version: String, log: inout String) -> Bool {
+        // 方法1: 尝试 asdf 安装
+        log += "📥 方法1: 尝试通过 asdf 安装 PHP \(version)...\n"
+        let asdfResult = Shell.run("asdf install php \(version)", timeout: 600)
+        log += asdfResult.out
+        if !asdfResult.err.isEmpty {
+            log += "\n⚠️ asdf 安装错误输出:\n\(asdfResult.err)"
+        }
+        
+        if asdfResult.code == 0 {
+            // 验证 asdf 安装是否成功
+            let verifyResult = Shell.run("asdf list php 2>/dev/null | grep -w '\(version)'")
+            if verifyResult.code == 0 && !verifyResult.out.isEmpty {
+                log += "\n✅ asdf 安装成功！\n"
+                return true
+            }
+        }
+        
+        log += "\n⚠️ asdf 安装失败，尝试方法2: Homebrew 安装...\n"
+        
+        // 方法2: 尝试通过 Homebrew 安装
+        // PHP 版本格式通常是 8.3.12，需要转换为 brew 的格式 php@8.3
+        let brewVersion = self.extractBrewPhpVersion(from: version)
+        
+        let brewCheck = Shell.run("which brew")
+        if brewCheck.code == 0 {
+            log += "📦 通过 Homebrew 安装 PHP...\n"
+            
+            // 1. 首先尝试安装最新版本的 PHP（brew install php）
+            log += "   方法 2.1: 尝试安装 Homebrew 官方最新版本 PHP...\n"
+            let checkInstalledSimple = Shell.run("brew list --formula php 2>/dev/null | head -1")
+            if checkInstalledSimple.code == 0 {
+                log += "✅ PHP 已通过 Homebrew 安装\n"
+                // 验证安装
+                let verifyResult = Shell.run("php --version 2>/dev/null | head -1")
+                if verifyResult.code == 0 && !verifyResult.out.isEmpty {
+                    log += "✅ 验证成功: \(verifyResult.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                    return true
+                }
+            }
+            
+            // 尝试安装最新版本
+            var brewInstallResult = Shell.run("brew install php", timeout: 600)
+            log += brewInstallResult.out
+            if !brewInstallResult.err.isEmpty {
+                log += "\n⚠️ Homebrew 安装警告:\n\(brewInstallResult.err)"
+            }
+            
+            // 如果最新版本安装成功，验证并返回
+            if brewInstallResult.code == 0 {
+                log += "\n✅ Homebrew 安装成功！\n"
+                
+                // 验证安装
+                let verifyPaths = [
+                    "/opt/homebrew/bin/php",
+                    "/usr/local/bin/php",
+                    "/opt/homebrew/opt/php/bin/php",
+                    "/usr/local/opt/php/bin/php"
+                ]
+                
+                var verified = false
+                var verifiedPath: String? = nil
+                var verifiedVersion: String? = nil
+                
+                for phpPath in verifyPaths {
+                    let verifyCheck = Shell.run("test -f '\(phpPath)' && '\(phpPath)' --version 2>/dev/null | head -1")
+                    if verifyCheck.code == 0 && !verifyCheck.out.isEmpty {
+                        let output = verifyCheck.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                        log += "✅ 验证成功: \(output)\n"
+                        
+                        if let versionMatch = output.range(of: #"PHP (\d+\.\d+\.\d+)"#, options: .regularExpression) {
+                            let fullMatch = String(output[versionMatch])
+                            verifiedVersion = fullMatch.replacingOccurrences(of: "PHP ", with: "")
+                        }
+                        
+                        verifiedPath = phpPath
+                        verified = true
+                        break
+                    }
+                }
+                
+                // 如果路径验证失败，尝试直接执行 php --version
+                if !verified {
+                    let directCheck = Shell.run("php --version 2>/dev/null | head -1")
+                    if directCheck.code == 0 && !directCheck.out.isEmpty {
+                        log += "✅ 验证成功（通过 PATH）: \(directCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                        
+                        if let versionMatch = directCheck.out.range(of: #"PHP (\d+\.\d+\.\d+)"#, options: .regularExpression) {
+                            let fullMatch = String(directCheck.out[versionMatch])
+                            verifiedVersion = fullMatch.replacingOccurrences(of: "PHP ", with: "")
+                        }
+                        
+                        verified = true
+                        verifiedPath = "系统 PATH"
+                    }
+                }
+                
+                if verified {
+                    log += "💡 注意: 此版本通过 Homebrew 安装，已添加到系统 PATH\n"
+                    
+                    // 尝试自动链接到 asdf
+                    if let path = verifiedPath, path != "系统 PATH" {
+                        let asdfInstallDir = FileManager.default.homeDirectoryForCurrentUser.path + "/.asdf/installs/php"
+                        let asdfVersionPath = "\(asdfInstallDir)/\(verifiedVersion ?? version)"
+                        let linkPath = path.replacingOccurrences(of: "/bin/php", with: "")
+                        
+                        let mkdirResult = Shell.run("mkdir -p '\(asdfInstallDir)'")
+                        if mkdirResult.code == 0 {
+                            let linkResult = Shell.run("ln -sf '\(linkPath)' '\(asdfVersionPath)'")
+                            if linkResult.code == 0 {
+                                log += "✅ 已自动链接到 asdf 管理\n"
+                            }
+                        }
+                    }
+                    
+                    return true
+                } else {
+                    log += "⚠️ 安装成功但验证失败，请手动检查\n"
+                }
+            }
+            
+            // 2. 如果最新版本安装失败，且用户需要特定版本，尝试通过 shivammathur/php 安装
+            if brewInstallResult.code != 0, let brewVersion = brewVersion {
+                log += "   方法 2.2: 尝试通过 shivammathur/php 安装 PHP \(brewVersion)...\n"
+                
+                // 添加 tap
+                log += "   添加 PHP tap (shivammathur/php)...\n"
+                let tapResult = Shell.run("brew tap shivammathur/php 2>&1", timeout: 30)
+                if tapResult.code == 0 || tapResult.out.contains("already tapped") || tapResult.err.contains("already tapped") {
+                    log += "   ✅ Tap 已就绪\n"
+                } else {
+                    log += "   ⚠️ Tap 添加失败，继续尝试安装...\n"
+                }
+                
+                // 检查是否已经安装特定版本
+                let checkInstalled = Shell.run("brew list --formula php@\(brewVersion) 2>/dev/null || brew list php@\(brewVersion) 2>/dev/null | head -1")
+                if checkInstalled.code == 0 {
+                    log += "✅ PHP \(brewVersion) 已通过 Homebrew 安装\n"
+                    return true
+                }
+                
+                // 尝试通过 shivammathur/php 安装特定版本
+                brewInstallResult = Shell.run("brew install shivammathur/php/php@\(brewVersion)", timeout: 600)
+                
+                // 如果失败，尝试官方 Homebrew 特定版本格式
+                if brewInstallResult.code != 0 {
+                    log += "   shivammathur/php 安装失败，尝试官方 Homebrew 特定版本格式...\n"
+                    brewInstallResult = Shell.run("brew install php@\(brewVersion)", timeout: 600)
+                }
+                
+                log += brewInstallResult.out
+                if !brewInstallResult.err.isEmpty {
+                    log += "\n⚠️ Homebrew 安装警告:\n\(brewInstallResult.err)"
+                }
+                
+                if brewInstallResult.code == 0 {
+                    log += "\n✅ Homebrew 安装成功！\n"
+                    
+                    // 验证安装 - 检查特定版本的路径
+                    let verifyPaths = [
+                        "/opt/homebrew/opt/php@\(brewVersion)/bin/php",
+                        "/usr/local/opt/php@\(brewVersion)/bin/php",
+                        "/opt/homebrew/bin/php",
+                        "/usr/local/bin/php"
+                    ]
+                    
+                    var verified = false
+                    var verifiedPath: String? = nil
+                    var verifiedVersion: String? = nil
+                    
+                    for phpPath in verifyPaths {
+                        let verifyCheck = Shell.run("test -f '\(phpPath)' && '\(phpPath)' --version 2>/dev/null | head -1")
+                        if verifyCheck.code == 0 && !verifyCheck.out.isEmpty {
+                            let output = verifyCheck.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                            log += "✅ 验证成功: \(output)\n"
+                            
+                            // 提取版本号
+                            if let versionMatch = output.range(of: #"PHP (\d+\.\d+\.\d+)"#, options: .regularExpression) {
+                                let fullMatch = String(output[versionMatch])
+                                verifiedVersion = fullMatch.replacingOccurrences(of: "PHP ", with: "")
+                            }
+                            
+                            verifiedPath = phpPath
+                            verified = true
+                            break
+                        }
+                    }
+                    
+                    if verified {
+                        log += "💡 注意: 此版本通过 Homebrew 安装，已添加到系统 PATH\n"
+                        log += "   可以使用 'brew link php@\(brewVersion)' 来切换到该版本\n"
+                        
+                        // 尝试自动链接到 asdf（可选，提升用户体验）
+                        if let path = verifiedPath, path != "系统 PATH" {
+                            let asdfInstallDir = FileManager.default.homeDirectoryForCurrentUser.path + "/.asdf/installs/php"
+                            let asdfVersionPath = "\(asdfInstallDir)/\(verifiedVersion ?? version)"
+                            let linkPath = path.replacingOccurrences(of: "/bin/php", with: "")
+                            
+                            // 创建目录（如果不存在）
+                            let mkdirResult = Shell.run("mkdir -p '\(asdfInstallDir)'")
+                            if mkdirResult.code == 0 {
+                                // 创建符号链接
+                                let linkResult = Shell.run("ln -sf '\(linkPath)' '\(asdfVersionPath)'")
+                                if linkResult.code == 0 {
+                                    log += "✅ 已自动链接到 asdf 管理\n"
+                                }
+                            }
+                        }
+                        
+                        return true
+                    } else {
+                        log += "⚠️ 安装成功但验证失败，请手动检查\n"
+                    }
+                } else {
+                    log += "\n⚠️ Homebrew 安装失败\n"
+                }
+            } else if brewInstallResult.code != 0 {
+                log += brewInstallResult.out
+                if !brewInstallResult.err.isEmpty {
+                    log += "\n⚠️ Homebrew 安装警告:\n\(brewInstallResult.err)"
+                }
+                log += "\n⚠️ Homebrew 安装失败\n"
+            }
+        } else {
+            log += "⚠️ Homebrew 不可用，跳过此方法\n"
+        }
+        
+        // 方法3: 如果前两种方法都失败，返回详细的错误信息和建议
+        log += "\n❌ 所有安装方法均失败\n"
+        log += "💡 建议:\n"
+        log += "   1. 检查错误日志中的具体错误信息\n"
+        log += "   2. 确保所有依赖已正确安装: brew install autoconf pkg-config libxml2 openssl\n"
+        log += "   3. 尝试手动安装:\n"
+        log += "      - asdf: asdf install php \(version)\n"
+        if let brewVersion = brewVersion {
+            log += "      - Homebrew: brew tap shivammathur/php && brew install shivammathur/php/php@\(brewVersion)\n"
+            log += "      - 或官方: brew install php@\(brewVersion)\n"
+        }
+        log += "   4. 检查版本号是否正确（asdf 支持的版本可能与 Homebrew 不同）\n"
+        log += "   5. 查看 PHP 官方文档: https://www.php.net/downloads\n"
+        
+        return false
+    }
+    
+    /// 从 PHP 版本号中提取 Homebrew 版本格式
+    /// 例如: 8.3.12 -> 8.3, 8.2.5 -> 8.2
+    private func extractBrewPhpVersion(from version: String) -> String? {
+        // 匹配主版本号和次版本号 (例如: 8.3.12 -> 8.3)
+        if let match = version.range(of: #"^(\d+\.\d+)"#, options: .regularExpression) {
+            return String(version[match])
+        }
+        return nil
+    }
+    
+    /// Fastlane 安装的多种方式回退机制
+    /// 1. 首先尝试 asdf 安装（如果插件可用）
+    /// 2. 如果失败，尝试通过 Homebrew 安装（通常安装最新版本）
+    /// 3. 最后尝试通过 gem 安装（RubyGems）
+    private func installFastlaneWithFallback(version: String, log: inout String) -> Bool {
+        // 方法1: 尝试 asdf 安装（如果插件可用）
+        log += "📥 方法1: 尝试通过 asdf 安装 Fastlane \(version)...\n"
+        let pluginCheck = Shell.run("asdf plugin list | grep -w 'fastlane'")
+        if pluginCheck.code == 0 {
+            let asdfResult = Shell.run("asdf install fastlane \(version)", timeout: 600)
+            log += asdfResult.out
+            if !asdfResult.err.isEmpty {
+                log += "\n⚠️ asdf 安装错误输出:\n\(asdfResult.err)"
+            }
+            
+            if asdfResult.code == 0 {
+                // 验证 asdf 安装是否成功
+                let verifyResult = Shell.run("asdf list fastlane 2>/dev/null | grep -w '\(version)'")
+                if verifyResult.code == 0 && !verifyResult.out.isEmpty {
+                    log += "\n✅ asdf 安装成功！\n"
+                    return true
+                }
+            }
+            log += "\n⚠️ asdf 安装失败或验证失败，尝试方法2...\n"
+        } else {
+            log += "⚠️ asdf fastlane 插件未安装，跳过 asdf 安装\n"
+        }
+        
+        // 方法2: 尝试通过 Homebrew 安装（安装最新版本）
+        log += "\n📦 方法2: 尝试通过 Homebrew 安装 Fastlane...\n"
+        let brewCheck = Shell.run("which brew")
+        if brewCheck.code == 0 {
+            // 检查是否已经安装
+            let checkInstalled = Shell.run("brew list --formula fastlane 2>/dev/null | head -1")
+            if checkInstalled.code == 0 {
+                log += "✅ Fastlane 已通过 Homebrew 安装\n"
+                // 验证安装
+                let verifyResult = Shell.run("fastlane --version 2>/dev/null | head -1")
+                if verifyResult.code == 0 && !verifyResult.out.isEmpty {
+                    log += "✅ 验证成功: \(verifyResult.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                    return true
+                }
+            }
+            
+            // 尝试安装
+            log += "   安装 Homebrew Fastlane...\n"
+            let brewInstallResult = Shell.run("brew install fastlane", timeout: 300)
+            log += brewInstallResult.out
+            if !brewInstallResult.err.isEmpty {
+                log += "\n⚠️ Homebrew 安装警告:\n\(brewInstallResult.err)"
+            }
+            
+            if brewInstallResult.code == 0 {
+                log += "\n✅ Homebrew 安装成功！\n"
+                // 验证安装
+                let verifyResult = Shell.run("fastlane --version 2>/dev/null | head -1")
+                if verifyResult.code == 0 && !verifyResult.out.isEmpty {
+                    log += "✅ 验证成功: \(verifyResult.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                    return true
+                } else {
+                    log += "⚠️ 安装成功但验证失败，请手动检查\n"
+                }
+            } else {
+                log += "\n⚠️ Homebrew 安装失败\n"
+            }
+        } else {
+            log += "⚠️ Homebrew 不可用，跳过此方法\n"
+        }
+        
+        // 方法3: 尝试通过 gem 安装（RubyGems）
+        log += "\n💎 方法3: 尝试通过 RubyGems 安装 Fastlane...\n"
+        let rubyCheck = Shell.run("which ruby")
+        if rubyCheck.code == 0 {
+            // 检查是否已经安装
+            let checkInstalled = Shell.run("gem list fastlane --local 2>/dev/null | grep fastlane")
+            if checkInstalled.code == 0 && !checkInstalled.out.isEmpty {
+                log += "✅ Fastlane 已通过 gem 安装\n"
+                let verifyResult = Shell.run("fastlane --version 2>/dev/null | head -1")
+                if verifyResult.code == 0 && !verifyResult.out.isEmpty {
+                    log += "✅ 验证成功: \(verifyResult.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                    return true
+                }
+            }
+            
+            // 尝试安装（如果指定版本，使用指定版本；否则安装最新版本）
+            let gemCommand = version == "latest" || version.isEmpty 
+                ? "gem install fastlane -NV" 
+                : "gem install fastlane -v \(version) -NV"
+            log += "   执行命令: \(gemCommand)\n"
+            let gemInstallResult = Shell.run(gemCommand, timeout: 600)
+            log += gemInstallResult.out
+            if !gemInstallResult.err.isEmpty {
+                log += "\n⚠️ Gem 安装警告:\n\(gemInstallResult.err)"
+            }
+            
+            if gemInstallResult.code == 0 {
+                log += "\n✅ Gem 安装成功！\n"
+                // 验证安装
+                let verifyResult = Shell.run("fastlane --version 2>/dev/null | head -1")
+                if verifyResult.code == 0 && !verifyResult.out.isEmpty {
+                    log += "✅ 验证成功: \(verifyResult.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                    return true
+                } else {
+                    log += "⚠️ 安装成功但验证失败，请手动检查\n"
+                }
+            } else {
+                log += "\n⚠️ Gem 安装失败\n"
+            }
+        } else {
+            log += "⚠️ Ruby 不可用，跳过此方法\n"
+        }
+        
+        // 方法4: 所有方法都失败
+        log += "\n❌ 所有安装方法均失败\n"
+        log += "💡 建议:\n"
+        log += "   1. 检查错误日志中的具体错误信息\n"
+        log += "   2. 尝试手动安装:\n"
+        log += "      - Homebrew: brew install fastlane\n"
+        log += "      - Gem: gem install fastlane -NV\n"
+        log += "      - asdf: asdf plugin add fastlane https://github.com/jonathanmorley/asdf-fastlane.git && asdf install fastlane \(version)\n"
+        log += "   3. 确保 Ruby 已正确安装（gem 安装需要 Ruby）\n"
+        log += "   4. 查看 Fastlane 官方文档: https://docs.fastlane.tools/getting-started/ios/setup/\n"
+        
+        return false
+    }
+    
     func refreshInstalledVersions(language: ProgrammingLanguage) {
         guard let index = languages.firstIndex(where: { $0.id == language.id }) else { return }
         refreshLanguageStatus(at: index)
     }
     
-    func loadAvailableVersions(language: ProgrammingLanguage) {
+    /// 删除语言（从列表中移除）
+    func removeLanguage(_ language: ProgrammingLanguage) {
         guard let index = languages.firstIndex(where: { $0.id == language.id }) else { return }
+        languages.remove(at: index)
+        print("🗑️ [DEBUG] 已删除语言: \(language.id)")
+    }
+    
+    func loadAvailableVersions(language: ProgrammingLanguage) {
+        let languageId = language.id
+        
+        // 检查是否已经在加载这个语言的版本列表
+        if loadingVersionsForLanguageId == languageId {
+            print("⚠️ [DEBUG] 语言 \(languageId) 的版本列表正在加载中，跳过重复请求")
+            return
+        }
+        
+        guard let index = languages.firstIndex(where: { $0.id == languageId }) else {
+            print("⚠️ [DEBUG] 找不到语言: \(languageId)")
+            return
+        }
+        
+        // 设置加载状态
+        loadingVersionsForLanguageId = languageId
         
         // 1. 立即显示预置版本（提升用户体验）
-        let predefinedVersions = SoftConfig.getPredefinedVersions(for: language.id)
+        let predefinedVersions = SoftConfig.getPredefinedVersions(for: languageId)
         DispatchQueue.main.async {
-            // 确保索引仍然有效
-            guard index < self.languages.count else { return }
+            // 使用语言ID验证，而不是索引（因为索引可能在异步任务执行期间改变）
+            guard let currentIndex = self.languages.firstIndex(where: { $0.id == languageId }),
+                  currentIndex < self.languages.count else {
+                print("⚠️ [DEBUG] 语言 \(languageId) 已不存在，取消加载")
+                self.loadingVersionsForLanguageId = nil
+                return
+            }
             
-            self.languages[index].availableVersions = predefinedVersions
+            self.languages[currentIndex].availableVersions = predefinedVersions
             // 触发视图更新
             self.objectWillChange.send()
             
-            print("📋 [DEBUG] 立即显示预置版本: \(language.id), 共 \(predefinedVersions.count) 个版本")
+            print("📋 [DEBUG] 立即显示预置版本: \(languageId), 共 \(predefinedVersions.count) 个版本")
         }
         
         // 2. 后台加载完整版本列表
         DispatchQueue.global(qos: .userInitiated).async {
-            // 对于 Java，使用更高效的命令，只获取最近的版本
+            // 在异步任务开始时验证语言ID是否仍然匹配（防止在进入异步任务前语言已切换）
+            guard self.loadingVersionsForLanguageId == languageId else {
+                print("⚠️ [DEBUG] 异步任务开始前语言已切换，取消加载: \(languageId)")
+                return
+            }
+            
+            // 对于不同语言，使用更高效的命令，只获取最近的版本
             let command: String
             let limit: Int
             let timeout: TimeInterval
             
-            if language.id == "java" {
+            if languageId == "java" {
                 // Java 版本列表非常长，使用 head 只获取最新的版本，避免遍历整个列表
-                // 先尝试获取已安装的版本，然后获取最新的可用版本
-                command = "asdf list all \(language.id) 2>/dev/null | grep -E '^(temurin|adopt|zulu|corretto|openjdk)' | head -50"
+                command = "asdf list all \(languageId) 2>/dev/null | grep -E '^(temurin|adopt|zulu|corretto|openjdk)' | head -50"
                 limit = 50
-                timeout = 8  // 缩短超时时间
+                timeout = 8
+            } else if languageId == "rust" {
+                // Rust 版本列表也很长，且加载很慢，只获取最新的版本
+                // 使用 tail -30 获取最新版本，速度更快
+                command = "asdf list all \(languageId) 2>/dev/null | tail -30"
+                limit = 30
+                timeout = 10  // Rust 加载可能较慢，但限制为 10 秒
+            } else if languageId == "kotlin" {
+                // Kotlin 版本列表可能也很长，限制获取数量
+                command = "asdf list all \(languageId) 2>/dev/null | tail -50"
+                limit = 50
+                timeout = 10  // Kotlin 也设置较短超时
+            } else if languageId == "php" {
+                // PHP 版本列表加载可能很慢，优先获取稳定版本（8.x 和 7.x 系列）
+                // 使用 grep 过滤主要版本系列，然后取最新的版本
+                command = "asdf list all \(languageId) 2>/dev/null | grep -E '^(8\\.|7\\.|5\\.)' | tail -60"
+                limit = 60
+                timeout = 15  // PHP 可能需要更长时间来获取版本列表
+            } else if languageId == "fastlane" {
+                // fastlane 版本列表可能比较长，获取最新的版本
+                command = "asdf list all \(languageId) 2>/dev/null | tail -50"
+                limit = 50
+                timeout = 12
             } else {
-                command = "asdf list all \(language.id) 2>/dev/null | tail -50"
+                command = "asdf list all \(languageId) 2>/dev/null | tail -50"
                 limit = 50
                 timeout = 12
             }
@@ -1199,10 +2169,22 @@ class LanguageManagementViewModel: ObservableObject {
             
             // 如果命令超时或失败，使用备用方法（仅获取最后几个版本）
             if loadedVersions.isEmpty || result.code != 0 {
-                print("⚠️ [DEBUG] 加载版本列表超时或失败，使用备用方法")
-                let fallbackCommand = "asdf list all \(language.id) 2>/dev/null | tail -20"
-                let fallbackResult = Shell.run(fallbackCommand, timeout: 5)
-                loadedVersions = VersionManager.cleanVersionOutput(fallbackResult.out)
+                print("⚠️ [DEBUG] 加载版本列表超时或失败，使用备用方法: \(languageId)")
+                
+                // PHP 的特殊备用方法：直接使用预置版本，不尝试再次加载
+                if languageId == "php" {
+                    print("📋 [DEBUG] PHP 版本列表加载失败，仅使用预置版本")
+                    // 不设置 loadedVersions，让它保持为空，后续只使用预置版本
+                    loadedVersions = []
+                } else if languageId == "npm" {
+                    // npm 通常随 Node.js 一起安装，可能没有独立的版本列表
+                    print("📋 [DEBUG] npm 版本列表加载失败，npm 通常随 Node.js 一起安装")
+                    loadedVersions = []
+                } else {
+                    let fallbackCommand = "asdf list all \(languageId) 2>/dev/null | tail -20"
+                    let fallbackResult = Shell.run(fallbackCommand, timeout: 5)
+                    loadedVersions = VersionManager.cleanVersionOutput(fallbackResult.out)
+                }
             }
             
             // 限制加载的版本数量，避免列表过长
@@ -1242,16 +2224,31 @@ class LanguageManagementViewModel: ObservableObject {
             
             // 4. 合并完成后，在主线程更新界面并强制刷新
             DispatchQueue.main.async {
-                // 确保索引仍然有效
-                guard index < self.languages.count else { return }
+                // 关键修复：使用语言ID验证，而不是索引
+                // 因为如果在异步任务执行期间用户切换了语言，索引可能仍然有效但对应的语言ID已经改变了
+                guard let currentIndex = self.languages.firstIndex(where: { $0.id == languageId }),
+                      currentIndex < self.languages.count else {
+                    print("⚠️ [DEBUG] 语言 \(languageId) 已不存在或已切换，取消更新版本列表")
+                    self.loadingVersionsForLanguageId = nil
+                    return
+                }
+                
+                // 验证当前加载的语言ID是否仍然匹配（防止在加载过程中切换了语言）
+                if self.loadingVersionsForLanguageId != languageId {
+                    print("⚠️ [DEBUG] 语言已切换（从 \(languageId) 切换），取消更新版本列表")
+                    return
+                }
                 
                 // 更新版本列表
-                self.languages[index].availableVersions = mergedVersions
+                self.languages[currentIndex].availableVersions = mergedVersions
+                
+                // 清除加载状态
+                self.loadingVersionsForLanguageId = nil
                 
                 // 强制触发 SwiftUI 视图更新
                 self.objectWillChange.send()
                 
-                print("✅ [DEBUG] 合并版本列表完成并已刷新: \(language.id), 预置 \(predefinedVersions.count) 个, 加载 \(loadedVersions.count) 个, 合并后共 \(mergedVersions.count) 个版本")
+                print("✅ [DEBUG] 合并版本列表完成并已刷新: \(languageId), 预置 \(predefinedVersions.count) 个, 加载 \(loadedVersions.count) 个, 合并后共 \(mergedVersions.count) 个版本")
             }
         }
     }
@@ -1428,19 +2425,314 @@ class LanguageManagementViewModel: ObservableObject {
     
     func installVersion(language: ProgrammingLanguage, version: String, completion: @escaping (Bool, String, String?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            // 确保插件已添加
-            let pluginResult = Shell.run("asdf plugin list | grep -w '\(language.id)' || asdf plugin add \(language.id)")
-            var log = pluginResult.code == 0 ? "✅ 插件已就绪\n" : "❌ 插件添加失败\n"
+            var log = ""
+            var success = false
+            var tip = ""
             
-            // 安装版本
-            let installResult = Shell.run("asdf install \(language.id) \(version)")
-            log += installResult.out + installResult.err
+            // 1. 确保插件已添加
+            let pluginCheck = Shell.run("asdf plugin list | grep -w '\(language.id)'")
+            if pluginCheck.code != 0 {
+                log += "📦 添加 asdf 插件...\n"
+                
+                // PHP 特殊处理：使用正确的插件 URL
+                let pluginAddCommand: String
+                if language.id == "php" {
+                    pluginAddCommand = "asdf plugin add php https://github.com/asdf-community/asdf-php.git"
+                } else {
+                    pluginAddCommand = "asdf plugin add \(language.id)"
+                }
+                
+                let pluginResult = Shell.run(pluginAddCommand)
+                if pluginResult.code != 0 {
+                    log += "❌ 插件添加失败: \(pluginResult.err)\n"
+                    log += pluginResult.out
+                    
+                    // PHP 特殊处理：提供更详细的错误信息
+                    if language.id == "php" {
+                        log += "\n💡 提示: PHP 插件添加失败。\n"
+                        log += "   请手动运行: asdf plugin add php https://github.com/asdf-community/asdf-php.git\n"
+                        log += "   或检查网络连接和 asdf 配置。\n"
+                    }
+                    
+                    tip = "插件添加失败，请检查网络连接或手动添加插件。"
+                    DispatchQueue.main.async {
+                        completion(false, log, tip)
+                    }
+                    return
+                }
+                log += "✅ 插件已添加\n"
+            } else {
+                log += "✅ 插件已就绪\n"
+            }
             
-            let success = installResult.code == 0
-            let tip = success ? "安装成功！使用 '设为全局' 按钮来启用此版本。" : "安装失败，请检查版本号是否正确。"
+            // 2. PHP 特殊处理：检查并自动安装依赖项
+            if language.id == "php" {
+                log += "🔍 检查 PHP 安装依赖...\n"
+                let dependencies = ["autoconf", "pkg-config", "libxml2", "openssl"]
+                var missingDeps: [String] = []
+                
+                // 检查每个依赖是否已安装
+                for dep in dependencies {
+                    // 检查是否在 PATH 中或通过 Homebrew 安装
+                    let checkResult = Shell.run("which \(dep) 2>/dev/null || brew list --formula \(dep) 2>/dev/null | head -1")
+                    if checkResult.code != 0 {
+                        missingDeps.append(dep)
+                    }
+                }
+                
+                if !missingDeps.isEmpty {
+                    log += "⚠️ 缺少以下依赖: \(missingDeps.joined(separator: ", "))\n"
+                    log += "📦 自动安装缺失的依赖...\n"
+                    
+                    // 检查 Homebrew 是否可用
+                    let brewCheck = Shell.run("which brew")
+                    if brewCheck.code == 0 {
+                        // 自动安装缺失的依赖
+                        let installDepsCommand = "brew install \(missingDeps.joined(separator: " "))"
+                        log += "   执行命令: \(installDepsCommand)\n"
+                        
+                        let installDepsResult = Shell.run(installDepsCommand, timeout: 300) // 依赖安装可能需要较长时间
+                        log += installDepsResult.out
+                        if !installDepsResult.err.isEmpty {
+                            log += "\n⚠️ 依赖安装警告:\n\(installDepsResult.err)"
+                        }
+                        
+                        if installDepsResult.code == 0 {
+                            log += "\n✅ 依赖安装成功\n"
+                        } else {
+                            log += "\n⚠️ 部分依赖可能安装失败，将继续尝试安装 PHP...\n"
+                        }
+                    } else {
+                        log += "❌ Homebrew 未找到，无法自动安装依赖\n"
+                        log += "💡 请先安装 Homebrew，然后运行: brew install \(missingDeps.joined(separator: " "))\n"
+                    }
+                } else {
+                    log += "✅ 依赖检查通过\n"
+                }
+            }
+            
+            // 3. 安装版本 - 使用多种安装方式回退机制（仅对 PHP 和 fastlane）
+            var installResult: (code: Int32, out: String, err: String)? = nil
+            if language.id == "php" {
+                success = self.installPhpWithFallback(version: version, log: &log)
+            } else if language.id == "fastlane" {
+                success = self.installFastlaneWithFallback(version: version, log: &log)
+            } else {
+                // 其他语言使用标准 asdf 安装
+                log += "📥 开始安装 \(language.id) \(version)...\n"
+                installResult = Shell.run("asdf install \(language.id) \(version)", timeout: 600)
+                log += installResult!.out
+                if !installResult!.err.isEmpty {
+                    log += "\n⚠️ 错误输出:\n\(installResult!.err)"
+                }
+                success = installResult!.code == 0
+            }
+            
+            // 4. 验证安装是否成功
+            if success {
+                log += "\n✅ 安装完成，验证中...\n"
+                
+                // PHP 特殊验证：需要检查 asdf 和 Homebrew 两种安装方式
+                if language.id == "php" {
+                    var verified = false
+                    
+                    // 检查 asdf 安装
+                    let asdfVerifyResult = Shell.run("asdf list php 2>/dev/null | grep -w '\(version)'")
+                    if asdfVerifyResult.code == 0 && !asdfVerifyResult.out.isEmpty {
+                        log += "✅ asdf 版本验证成功: \(version) 已安装\n"
+                        verified = true
+                        
+                        // 验证可执行文件
+                        let phpPathResult = Shell.run("asdf where php \(version) 2>/dev/null")
+                        if phpPathResult.code == 0 {
+                            let phpPath = phpPathResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let phpBinPath = "\(phpPath)/bin/php"
+                            let phpCheck = Shell.run("test -f '\(phpBinPath)' && '\(phpBinPath)' --version 2>/dev/null | head -1")
+                            if phpCheck.code == 0 {
+                                log += "✅ PHP 可执行文件验证成功\n"
+                                log += "   \(phpCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                            }
+                        }
+                    }
+                    
+                    // 检查 Homebrew 安装
+                    if !verified {
+                        let brewVersion = self.extractBrewPhpVersion(from: version)
+                        if let brewVersion = brewVersion {
+                            // 检查 Homebrew PHP 路径（多种可能的路径）
+                            let homebrewPhpPaths = [
+                                "/opt/homebrew/opt/php@\(brewVersion)/bin/php",
+                                "/usr/local/opt/php@\(brewVersion)/bin/php",
+                                "/opt/homebrew/bin/php",  // 如果已链接
+                                "/usr/local/bin/php"      // 如果已链接
+                            ]
+                            
+                            var foundPhpPath: String? = nil
+                            var foundVersion: String? = nil
+                            
+                            for phpPath in homebrewPhpPaths {
+                                let phpCheck = Shell.run("test -f '\(phpPath)' && '\(phpPath)' --version 2>/dev/null | head -1")
+                                if phpCheck.code == 0 {
+                                    let output = phpCheck.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    
+                                    // 提取版本号
+                                    if let versionMatch = output.range(of: #"PHP (\d+\.\d+\.\d+)"#, options: .regularExpression) {
+                                        let fullMatch = String(output[versionMatch])
+                                        foundVersion = fullMatch.replacingOccurrences(of: "PHP ", with: "")
+                                        
+                                        // 检查是否匹配请求的版本（允许主次版本匹配，如 8.3.x 都算匹配）
+                                        if foundVersion!.hasPrefix(brewVersion) {
+                                            foundPhpPath = phpPath
+                                            break
+                                        }
+                                    } else if let simpleMatch = output.range(of: #"PHP (\d+\.\d+)"#, options: .regularExpression) {
+                                        let fullMatch = String(output[simpleMatch])
+                                        let simpleVersion = fullMatch.replacingOccurrences(of: "PHP ", with: "")
+                                        
+                                        // 检查主次版本是否匹配
+                                        if simpleVersion == brewVersion {
+                                            foundPhpPath = phpPath
+                                            foundVersion = version // 使用请求的完整版本号
+                                            break
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // 如果没找到，尝试通过 brew list 检查
+                            if foundPhpPath == nil {
+                                let brewListCheck = Shell.run("brew list --formula php@\(brewVersion) 2>/dev/null || brew list php@\(brewVersion) 2>/dev/null | head -1")
+                                if brewListCheck.code == 0 {
+                                    // 找到了，但路径可能不同，尝试通过 brew --prefix 获取
+                                    let prefixResult = Shell.run("brew --prefix php@\(brewVersion) 2>/dev/null")
+                                    if prefixResult.code == 0 {
+                                        let prefix = prefixResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                                        let possiblePath = "\(prefix)/bin/php"
+                                        let finalCheck = Shell.run("test -f '\(possiblePath)' && '\(possiblePath)' --version 2>/dev/null | head -1")
+                                        if finalCheck.code == 0 {
+                                            foundPhpPath = possiblePath
+                                            foundVersion = version
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if let phpPath = foundPhpPath, let detectedVersion = foundVersion {
+                                log += "✅ Homebrew PHP 版本验证成功: \(detectedVersion) (通过 php@\(brewVersion))\n"
+                                log += "   路径: \(phpPath)\n"
+                                
+                                // 尝试将 Homebrew 版本链接到 asdf（可选，但推荐）
+                                let asdfInstallPath = FileManager.default.homeDirectoryForCurrentUser.path + "/.asdf/installs/php/\(version)"
+                                let linkPath = phpPath.replacingOccurrences(of: "/bin/php", with: "")
+                                
+                                // 检查是否已存在链接
+                                let linkCheck = Shell.run("test -L '\(asdfInstallPath)' || test -d '\(asdfInstallPath)'")
+                                if linkCheck.code != 0 {
+                                    log += "\n💡 提示: 可以将 Homebrew 版本链接到 asdf 管理:\n"
+                                    log += "   mkdir -p ~/.asdf/installs/php\n"
+                                    log += "   ln -s \(linkPath) ~/.asdf/installs/php/\(version)\n"
+                                }
+                                
+                                verified = true
+                            }
+                        }
+                    }
+                    
+                    if verified {
+                        tip = "安装成功！使用 '设为全局' 按钮来启用此版本。"
+                    } else {
+                        log += "⚠️ 版本验证失败: 安装可能未完全成功\n"
+                        success = false
+                        tip = "安装可能未完全成功，请检查日志或手动验证。"
+                    }
+                } else if language.id == "fastlane" {
+                    // Fastlane 验证：检查所有可能的安装方式
+                    var verified = false
+                    
+                    // 检查 asdf 安装
+                    let asdfVerifyResult = Shell.run("asdf list fastlane 2>/dev/null | grep -w '\(version)'")
+                    if asdfVerifyResult.code == 0 && !asdfVerifyResult.out.isEmpty {
+                        log += "✅ asdf 版本验证成功: \(version) 已安装\n"
+                        verified = true
+                    }
+                    
+                    // 检查 Homebrew 安装
+                    if !verified {
+                        let brewCheck = Shell.run("brew list --formula fastlane 2>/dev/null | head -1")
+                        if brewCheck.code == 0 {
+                            let versionCheck = Shell.run("fastlane --version 2>/dev/null | head -1")
+                            if versionCheck.code == 0 && !versionCheck.out.isEmpty {
+                                log += "✅ Homebrew Fastlane 验证成功: \(versionCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                                verified = true
+                            }
+                        }
+                    }
+                    
+                    // 检查 gem 安装
+                    if !verified {
+                        let gemCheck = Shell.run("gem list fastlane --local 2>/dev/null | grep fastlane")
+                        if gemCheck.code == 0 && !gemCheck.out.isEmpty {
+                            let versionCheck = Shell.run("fastlane --version 2>/dev/null | head -1")
+                            if versionCheck.code == 0 && !versionCheck.out.isEmpty {
+                                log += "✅ Gem Fastlane 验证成功: \(versionCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                                verified = true
+                            }
+                        }
+                    }
+                    
+                    if verified {
+                        tip = "安装成功！Fastlane 已可用。"
+                    } else {
+                        log += "⚠️ 版本验证失败: 安装可能未完全成功\n"
+                        success = false
+                        tip = "安装可能未完全成功，请检查日志或手动验证。"
+                    }
+                } else {
+                    // 其他语言的验证
+                    let verifyResult = Shell.run("asdf list \(language.id) 2>/dev/null | grep -w '\(version)'")
+                    if verifyResult.code == 0 && !verifyResult.out.isEmpty {
+                        log += "✅ 版本验证成功: \(version) 已安装\n"
+                        tip = "安装成功！使用 '设为全局' 按钮来启用此版本。"
+                    } else {
+                        log += "⚠️ 版本验证失败: 安装可能未完全成功\n"
+                        success = false
+                        tip = "安装可能未完全成功，请检查日志或手动验证。"
+                    }
+                }
+            } else {
+                tip = "安装失败。"
+                
+                // PHP 的错误处理已经在 installPhpWithFallback 方法中完成
+                if language.id == "php" {
+                    // PHP 的错误信息已经在 log 中详细记录，这里只提供简短提示
+                    tip += " 详细错误信息请查看上方日志。"
+                } else if language.id == "fastlane" {
+                    // Fastlane 的错误处理已经在 installFastlaneWithFallback 方法中完成
+                    tip += " 详细错误信息请查看上方日志。"
+                } else if let result = installResult {
+                    // 其他语言的错误提示
+                    if result.err.contains("not found") || result.err.contains("No versions") {
+                        tip += " 版本号可能不正确，请检查可用版本列表。"
+                    } else {
+                        tip += " 请检查错误日志获取详细信息。"
+                    }
+                } else {
+                    tip += " 请检查版本号是否正确。"
+                }
+            }
             
             DispatchQueue.main.async {
                 completion(success, log, tip)
+                
+                // 5. 如果安装成功，刷新语言状态
+                if success {
+                    // 延迟刷新，确保文件系统更新完成
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        if let index = self.languages.firstIndex(where: { $0.id == language.id }) {
+                            self.refreshLanguageStatus(at: index)
+                        }
+                    }
+                }
             }
         }
     }
@@ -1450,7 +2742,15 @@ class LanguageManagementViewModel: ObservableObject {
             // 1. 确保 asdf 插件已添加
             let pluginCheck = Shell.run("asdf plugin list | grep -w '\(language.id)'")
             if pluginCheck.code != 0 {
-                let addPluginResult = Shell.run("asdf plugin add \(language.id)")
+                // PHP 特殊处理：使用正确的插件 URL
+                let pluginAddCommand: String
+                if language.id == "php" {
+                    pluginAddCommand = "asdf plugin add php https://github.com/asdf-community/asdf-php.git"
+                } else {
+                    pluginAddCommand = "asdf plugin add \(language.id)"
+                }
+                
+                let addPluginResult = Shell.run(pluginAddCommand)
                 if addPluginResult.code != 0 {
                     DispatchQueue.main.async {
                         completion(false)
@@ -1493,7 +2793,7 @@ class LanguageManagementViewModel: ObservableObject {
                 print("📄 [DEBUG] 从文件读取: \(language.id) = \(fileVersion ?? "nil"), 匹配=\(fileVerified)")
                 
                 // 5. 如果命令执行成功，立即更新界面（乐观更新）
-                DispatchQueue.main.async {
+            DispatchQueue.main.async {
                     if let index = self.languages.firstIndex(where: { $0.id == language.id }) {
                         // 创建更新后的语言对象
                         var updatedLanguage = self.languages[index]
@@ -1562,7 +2862,7 @@ class LanguageManagementViewModel: ObservableObject {
             // 4. 写入所有 shell 配置文件（.zshrc, .bashrc, .bash_profile, .zprofile 等）
             let success = ShellConfigManager.setSystemVersionConfigInAllFiles(envConfig: envConfig, languageId: language.id, installPath: installPath)
             
-            if success {
+                if success {
                 // 4. 更新界面
                 DispatchQueue.main.async {
                     if let index = self.languages.firstIndex(where: { $0.id == language.id }) {
@@ -1718,6 +3018,18 @@ class LanguageManagementViewModel: ObservableObject {
                 }
                 return nil
                 
+            case "gradle":
+                // Gradle 系统安装路径
+                if executablePath.contains("/usr/local/bin/gradle") {
+                    return "/usr/local"
+                } else if executablePath.contains("/opt/homebrew") {
+                    let path = executablePath as NSString
+                    let binPath = path.deletingLastPathComponent
+                    let gradlePath = (binPath as NSString).deletingLastPathComponent
+                    return gradlePath
+                }
+                return nil
+                
             default:
                 // 默认返回可执行文件的 bin 目录的父目录
                 let path = executablePath as NSString
@@ -1772,6 +3084,11 @@ class LanguageManagementViewModel: ObservableObject {
             // Kotlin 通常通过 Java 运行，需要设置 KOTLIN_HOME
             envVars["KOTLIN_HOME"] = installPath
             envVars["PATH"] = "$KOTLIN_HOME/bin:$PATH"
+            
+        case "gradle":
+            // Gradle 需要设置 GRADLE_HOME
+            envVars["GRADLE_HOME"] = installPath
+            envVars["PATH"] = "$GRADLE_HOME/bin:$PATH"
             
         default:
             return nil
@@ -2382,11 +3699,31 @@ struct AddLanguageView: View {
     private func loadAvailablePlugins() {
         isLoading = true
         
-        DispatchQueue.global(qos: .userInitiated).async {
-            // 获取所有可用的 asdf 插件
-            let result = Shell.run("asdf plugin list all", timeout: 30)
+        // 1. 立即显示预置插件列表（提升用户体验）
+        let predefinedPlugins = SoftConfig.getPredefinedAsdfPlugins()
+        let predefinedAsdfPlugins = predefinedPlugins.map { plugin in
+            AsdfPlugin(
+                name: plugin.name,
+                url: plugin.url,
+                description: plugin.description
+            )
+        }
+        
+        DispatchQueue.main.async {
+            // 过滤掉已经添加的语言
+            let existingLanguageIds = Set(self.viewModel.languages.map { $0.id })
+            self.availablePlugins = predefinedAsdfPlugins.filter { !existingLanguageIds.contains($0.name) }
+            self.isLoading = false
             
-            var plugins: [AsdfPlugin] = []
+            print("📋 [DEBUG] 立即显示预置插件: \(self.availablePlugins.count) 个")
+        }
+        
+        // 2. 后台异步加载完整的插件列表（可选，用于获取更多插件）
+        DispatchQueue.global(qos: .utility).async {
+            // 获取所有可用的 asdf 插件
+            let result = Shell.run("asdf plugin list all", timeout: 15)
+            
+            var loadedPlugins: [AsdfPlugin] = []
             
             if result.code == 0 && !result.out.isEmpty {
                 let lines = result.out.components(separatedBy: "\n")
@@ -2396,7 +3733,7 @@ struct AddLanguageView: View {
                     if parts.count >= 2 {
                         let name = parts[0]
                         let url = parts[1]
-                        plugins.append(AsdfPlugin(
+                        loadedPlugins.append(AsdfPlugin(
                             name: name,
                             url: url,
                             description: self.getPluginDescription(name)
@@ -2405,9 +3742,27 @@ struct AddLanguageView: View {
                 }
             }
             
+            // 合并预置和加载的插件，去重
+            if !loadedPlugins.isEmpty {
             DispatchQueue.main.async {
-                self.availablePlugins = plugins.sorted { $0.name < $1.name }
-                self.isLoading = false
+                    let existingLanguageIds = Set(self.viewModel.languages.map { $0.id })
+                    let existingPluginNames = Set(self.availablePlugins.map { $0.name })
+                    
+                    // 只添加不在预置列表和已添加语言中的插件
+                    let newPlugins = loadedPlugins.filter { plugin in
+                        !existingLanguageIds.contains(plugin.name) && 
+                        !existingPluginNames.contains(plugin.name)
+                    }
+                    
+                    // 合并并排序
+                    var mergedPlugins = self.availablePlugins
+                    mergedPlugins.append(contentsOf: newPlugins)
+                    mergedPlugins = mergedPlugins.sorted { $0.name < $1.name }
+                    
+                    self.availablePlugins = mergedPlugins
+                    
+                    print("✅ [DEBUG] 合并后的插件列表: \(self.availablePlugins.count) 个（预置: \(predefinedAsdfPlugins.count), 新增: \(newPlugins.count)）")
+                }
             }
         }
     }
@@ -2499,7 +3854,8 @@ struct AddLanguageView: View {
             "scala": "s.circle.fill",
             "dart": "d.circle.fill",
             "lua": "moon.fill",
-            "r": "r.circle.fill"
+            "r": "r.circle.fill",
+            "gradle": "hammer.fill"
         ]
         
         return icons[name] ?? "terminal.fill"
@@ -2519,7 +3875,8 @@ struct AddLanguageView: View {
             "scala": .red,
             "dart": .blue,
             "lua": .blue,
-            "r": .blue
+            "r": .blue,
+            "gradle": .green
         ]
         
         return colors[name] ?? .gray

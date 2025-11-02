@@ -347,6 +347,10 @@ struct SoftConfig {
             "1.68.2"
         ],
         "php": [
+            "latest",
+            "8.4.14",
+            "8.4.0",
+            // PHP 8.3.x 系列（最新稳定版本）
             "8.3.15",
             "8.3.14",
             "8.3.13",
@@ -363,6 +367,7 @@ struct SoftConfig {
             "8.3.2",
             "8.3.1",
             "8.3.0",
+            // PHP 8.2.x 系列（长期支持版本）
             "8.2.28",
             "8.2.27",
             "8.2.26",
@@ -392,6 +397,7 @@ struct SoftConfig {
             "8.2.2",
             "8.2.1",
             "8.2.0",
+            // PHP 8.1.x 系列（长期支持版本）
             "8.1.30",
             "8.1.29",
             "8.1.28",
@@ -423,6 +429,7 @@ struct SoftConfig {
             "8.1.2",
             "8.1.1",
             "8.1.0",
+            // PHP 8.0.x 系列（保留主要版本）
             "8.0.30",
             "8.0.29",
             "8.0.28",
@@ -454,6 +461,7 @@ struct SoftConfig {
             "8.0.2",
             "8.0.1",
             "8.0.0",
+            // PHP 7.4.x 系列（最后一个 7.x 版本，仍被广泛使用）
             "7.4.33",
             "7.4.32",
             "7.4.31",
@@ -488,6 +496,60 @@ struct SoftConfig {
             "7.4.2",
             "7.4.1",
             "7.4.0"
+        ],
+        "fastlane": [
+            // Fastlane 最新版本（常见版本）
+            "latest",
+            "2.229.0",
+            "2.228.0",
+            "2.227.0",
+            "2.226.0",
+            "2.225.0",
+            "2.224.0",
+            "2.223.0",
+            "2.222.0",
+            "2.221.0",
+            "2.220.0",
+            "2.219.0",
+            "2.218.0",
+            "2.217.0",
+            "2.216.0",
+            "2.215.0",
+            "2.214.0",
+            "2.213.0",
+            "2.212.0",
+            "2.211.0",
+            "2.210.0",
+            "2.209.0",
+            "2.208.0",
+            "2.207.0",
+            "2.206.0",
+            "2.205.0",
+            "2.204.0",
+            "2.203.0",
+            "2.202.0",
+            "2.201.0",
+            "2.200.0",
+            "2.199.0",
+            "2.198.0",
+            "2.197.0",
+            "2.196.0",
+            "2.195.0",
+            "2.194.0",
+            "2.193.0",
+            "2.192.0",
+            "2.191.0",
+            "2.190.0",
+            "2.189.0",
+            "2.188.0",
+            "2.187.0",
+            "2.186.0",
+            "2.185.0",
+            "2.184.0",
+            "2.183.0",
+            "2.182.0",
+            "2.181.0",
+            "2.180.0"
         ],
         "scala": [
             "3.4.1",
@@ -650,6 +712,82 @@ struct SoftConfig {
             "1.7.2",
             "1.7.1",
             "1.7.0"
+        ],
+        "gradle": [
+            // Gradle 8.10.x 系列（保留最新）
+            "8.10.2",
+            "8.10.1",
+            "8.10.0",
+            // Gradle 8.9.x 系列（保留最新）
+            "8.9.4",
+            "8.9.1",
+            "8.9.0",
+            // Gradle 8.8.x 系列（保留最新）
+            "8.8.3",
+            "8.8.1",
+            "8.8.0",
+            // Gradle 8.7.x 系列（保留最新）
+            "8.7.3",
+            "8.7.1",
+            "8.7.0",
+            // Gradle 8.6.x 系列（保留最新）
+            "8.6.4",
+            "8.6.1",
+            "8.6.0",
+            // Gradle 8.5.x 系列（保留最新）
+            "8.5.5",
+            "8.5.1",
+            "8.5.0",
+            // Gradle 8.4.x 系列（保留最新）
+            "8.4.5",
+            "8.4.1",
+            "8.4.0",
+            // Gradle 8.3.x 系列（保留最新）
+            "8.3.5",
+            "8.3.1",
+            "8.3.0",
+            // Gradle 8.2.x 系列（只保留一个）
+            "8.2.5",
+            // Gradle 8.1.x 系列（只保留一个）
+            "8.1.5",
+            // Gradle 8.0.x 系列（保留最新）
+            "8.0.2",
+            "8.0.1",
+            "8.0.0",
+            // Gradle 7.6.x 系列（重要版本）
+            "7.6.4",
+            "7.6.3",
+            "7.6.2",
+            "7.6.1",
+            "7.6.0",
+            // Gradle 7.5.x 系列（重要版本）
+            "7.5.1",
+            "7.5.0",
+            // Gradle 7.4.x 系列（重要版本）
+            "7.4.2",
+            "7.4.0",
+            // Gradle 7.3.x 系列
+            "7.3.3",
+            "7.3.0",
+            // Gradle 7.2.x 系列
+            "7.2",
+            // Gradle 7.1.x 系列
+            "7.1.1",
+            // Gradle 7.0.x 系列
+            "7.0.2",
+            "7.0",
+            // Gradle 6.x 系列（保留稳定版本）
+            "6.9.4",
+            "6.9.2",
+            "6.8.3",
+            "6.8.2",
+            "6.8.1",
+            "6.8.0",
+            "6.7.3",
+            "6.7.2",
+            "6.7.1",
+            "6.7.0",
+            "6.6.3"
         ]
     ]
     
@@ -661,6 +799,120 @@ struct SoftConfig {
     /// 检查版本是否在预置列表中
     static func isPredefinedVersion(_ version: String, for languageId: String) -> Bool {
         return predefinedVersions[languageId]?.contains(version) ?? false
+    }
+    
+    /// 预置的 asdf 插件列表（常用语言和工具）
+    /// 用于快速显示，避免等待网络加载
+    static let predefinedAsdfPlugins: [String: (url: String, description: String)] = [
+        "nodejs": ("https://github.com/asdf-vm/asdf-nodejs.git", "JavaScript 运行时环境"),
+        "python": ("https://github.com/asdf-vm/asdf-python.git", "通用编程语言，适合数据科学和 Web 开发"),
+        "ruby": ("https://github.com/asdf-vm/asdf-ruby.git", "优雅的动态语言，Rails 框架的基础"),
+        "java": ("https://github.com/halcyon/asdf-java.git", "企业级应用和 Android 开发"),
+        "golang": ("https://github.com/asdf-community/asdf-golang.git", "高性能并发编程语言"),
+        "rust": ("https://github.com/asdf-community/asdf-rust.git", "安全高效的系统编程语言"),
+        "php": ("https://github.com/asdf-community/asdf-php.git", "流行的 Web 开发语言"),
+        "scala": ("https://github.com/asdf-community/asdf-scala.git", "多范式编程语言，运行在 JVM 上"),
+        "kotlin": ("https://github.com/asdf-community/asdf-kotlin.git", "现代 JVM 语言，Android 开发首选"),
+        "gradle": ("https://github.com/rfrancis/asdf-gradle.git", "强大的构建自动化工具"),
+        "maven": ("https://github.com/halcyon/asdf-maven.git", "Java 项目管理和构建工具"),
+        "npm": ("https://github.com/asdf-vm/asdf-nodejs.git", "Node.js 包管理器"),
+        "yarn": ("https://github.com/twuni/asdf-yarn.git", "快速、可靠的依赖管理工具"),
+        "pnpm": ("https://github.com/jonathanmorley/asdf-pnpm.git", "高效的 Node.js 包管理器"),
+        "deno": ("https://github.com/asdf-community/asdf-deno.git", "现代 JavaScript/TypeScript 运行时"),
+        "elixir": ("https://github.com/asdf-vm/asdf-elixir.git", "函数式并发编程语言"),
+        "erlang": ("https://github.com/asdf-vm/asdf-erlang.git", "并发编程语言和运行时系统"),
+        "haskell": ("https://github.com/vic/asdf-haskell.git", "纯函数式编程语言"),
+        "clojure": ("https://github.com/asdf-community/asdf-clojure.git", "动态函数式编程语言"),
+        "lua": ("https://github.com/Stratus3D/asdf-lua.git", "轻量级脚本语言"),
+        "terraform": ("https://github.com/asdf-community/asdf-hashicorp.git", "基础设施即代码工具"),
+        "docker": ("https://github.com/virtualstaticvoid/asdf-docker.git", "容器化平台"),
+        "kubectl": ("https://github.com/asdf-community/asdf-kubectl.git", "Kubernetes 命令行工具"),
+        "helm": ("https://github.com/Antiarchitect/asdf-helm.git", "Kubernetes 包管理器"),
+        "postgres": ("https://github.com/smashedtoatoms/asdf-postgres.git", "关系型数据库"),
+        "redis": ("https://github.com/smashedtoatoms/asdf-redis.git", "内存数据结构存储"),
+        "mongodb": ("https://github.com/sylph01/asdf-mongodb.git", "NoSQL 数据库"),
+        "dart": ("https://github.com/patoconnor43/asdf-dart.git", "Flutter 开发语言"),
+        "flutter": ("https://github.com/oae/asdf-flutter.git", "跨平台移动应用框架"),
+        "direnv": ("https://github.com/asdf-community/asdf-direnv.git", "环境变量管理工具"),
+        "jq": ("https://github.com/AZMCODE/asdf-jq.git", "JSON 处理工具"),
+        "yq": ("https://github.com/sudermanjr/asdf-yq.git", "YAML 处理工具"),
+        "kafka": ("https://github.com/usefulthings/asdf-kafka.git", "分布式流处理平台"),
+        "elasticsearch": ("https://github.com/asdf-community/asdf-elasticsearch.git", "搜索和分析引擎"),
+        // 云服务工具
+        "awscli": ("https://github.com/MetricMike/asdf-awscli.git", "Amazon Web Services 命令行工具"),
+        "gcloud": ("https://github.com/jthegedus/asdf-gcloud.git", "Google Cloud Platform 命令行工具"),
+        "azure-cli": ("https://github.com/victorhm/asdf-azure-cli.git", "Microsoft Azure 命令行工具"),
+        // HashiCorp 工具
+        "packer": ("https://github.com/asdf-community/asdf-hashicorp.git", "镜像构建工具"),
+        "vault": ("https://github.com/asdf-community/asdf-hashicorp.git", "密钥管理工具"),
+        "consul": ("https://github.com/asdf-community/asdf-hashicorp.git", "服务发现和配置管理"),
+        "nomad": ("https://github.com/asdf-community/asdf-hashicorp.git", "容器编排工具"),
+        "boundary": ("https://github.com/asdf-community/asdf-hashicorp.git", "安全边界管理"),
+        "waypoint": ("https://github.com/asdf-community/asdf-hashicorp.git", "应用部署工具"),
+        // 编辑器和终端工具
+        "neovim": ("https://github.com/richin13/asdf-neovim.git", "现代 Vim 编辑器"),
+        "vim": ("https://github.com/tsuyoshicho/asdf-vim.git", "强大的文本编辑器"),
+        "tmux": ("https://github.com/aphecetche/asdf-tmux.git", "终端复用器"),
+        // 数据库
+        "mysql": ("https://github.com/iroddis/asdf-mysql.git", "流行的关系型数据库"),
+        "mariadb": ("https://github.com/asdf-community/asdf-mariadb.git", "MySQL 分支数据库"),
+        "rabbitmq": ("https://github.com/gmcabrita/asdf-rabbitmq.git", "消息队列中间件"),
+        // 构建工具
+        "bazel": ("https://github.com/ralisme/asdf-bazel.git", "Google 构建工具"),
+        "sbt": ("https://github.com/smashedtoatoms/asdf-sbt.git", "Scala 构建工具"),
+        "ant": ("https://github.com/halcyon/asdf-ant.git", "Java 构建工具"),
+        // 开发工具
+        "protoc": ("https://github.com/paxosglobal/asdf-protoc.git", "Protocol Buffers 编译器"),
+        "ffmpeg": ("https://github.com/aclarke/asdf-ffmpeg.git", "多媒体处理工具"),
+        "imagemagick": ("https://github.com/mangalorp/asdf-imagemagick.git", "图像处理库"),
+        "openssl": ("https://github.com/okan/asdf-openssl.git", "加密库"),
+        "libpq": ("https://github.com/iroddis/asdf-libpq.git", "PostgreSQL 客户端库"),
+        "shfmt": ("https://github.com/luizm/asdf-shfmt.git", "Shell 脚本格式化工具"),
+        "shellcheck": ("https://github.com/luizm/asdf-shellcheck.git", "Shell 脚本静态分析工具"),
+        // 编程语言
+        "crystal": ("https://github.com/asdf-community/asdf-crystal.git", "静态类型编程语言"),
+        "ocaml": ("https://github.com/asdf-community/asdf-ocaml.git", "函数式编程语言"),
+        "nim": ("https://github.com/asdf-community/asdf-nim.git", "系统编程语言"),
+        "zig": ("https://github.com/cheetah/asdf-zig.git", "系统编程语言"),
+        "swift": ("https://github.com/younke/asdf-swift.git", "Apple 开发的编程语言"),
+        "c": ("https://github.com/techie/asdf-c.git", "C 语言编译器"),
+        "cpp": ("https://github.com/asdf-community/asdf-cpp.git", "C++ 编译器"),
+        "lisp": ("https://github.com/karolisl/asdf-lisp.git", "Lisp 编程语言"),
+        "perl": ("https://github.com/ouest/asdf-perl.git", "Perl 编程语言"),
+        "r": ("https://github.com/asdf-community/asdf-r.git", "统计计算语言"),
+        "julia": ("https://github.com/rkyleg/asdf-julia.git", "科学计算语言"),
+        // CI/CD 和测试工具
+        "circleci": ("https://github.com/johnlayton/asdf-circleci.git", "CircleCI 命令行工具"),
+        "gh": ("https://github.com/krab/asdf-gh.git", "GitHub CLI 工具"),
+        "git": ("https://github.com/NeoHsu/asdf-git.git", "版本控制系统"),
+        // 监控和日志工具
+        "prometheus": ("https://github.com/asdf-community/asdf-prometheus.git", "监控和告警系统"),
+        "grafana": ("https://github.com/dfrankland/asdf-grafana.git", "数据可视化平台"),
+        "logstash": ("https://github.com/asdf-community/asdf-logstash.git", "日志处理工具"),
+        // 容器和编排工具
+        "minikube": ("https://github.com/alvarobp/asdf-minikube.git", "本地 Kubernetes 环境"),
+        "skaffold": ("https://github.com/nklmilo/asdf-skaffold.git", "Kubernetes 开发工具"),
+        "kustomize": ("https://github.com/Banno/asdf-kustomize.git", "Kubernetes 配置管理"),
+        "istioctl": ("https://github.com/virtualstaticvoid/asdf-istioctl.git", "Istio 服务网格工具"),
+        // 更多工具
+        "bat": ("https://github.com/aberman/asdf-bat.git", "cat 命令的现代替代品"),
+        "fd": ("https://github.com/looztra/asdf-fd.git", "find 命令的现代替代品"),
+        "ripgrep": ("https://github.com/wesleimp/asdf-ripgrep.git", "grep 命令的现代替代品"),
+        "fzf": ("https://github.com/kompiro/asdf-fzf.git", "模糊查找工具"),
+        "htop": ("https://github.com/alvarobp/asdf-htop.git", "交互式进程查看器"),
+        "goreleaser": ("https://github.com/kforsthof/asdf-goreleaser.git", "Go 发布工具"),
+        "stern": ("https://github.com/virtualstaticvoid/asdf-stern.git", "Kubernetes 日志查看工具"),
+        "k9s": ("https://github.com/nklmilo/asdf-k9s.git", "Kubernetes 终端 UI"),
+        "kubectx": ("https://github.com/wesleimp/asdf-kubectx.git", "Kubernetes 上下文切换工具"),
+        "kubens": ("https://github.com/looztra/asdf-kubens.git", "Kubernetes 命名空间切换工具"),
+        "fastlane": ("https://github.com/jonathanmorley/asdf-fastlane.git", "iOS 和 Android 应用自动化构建和发布工具")
+    ]
+    
+    /// 获取预置的 asdf 插件列表
+    static func getPredefinedAsdfPlugins() -> [(name: String, url: String, description: String)] {
+        return predefinedAsdfPlugins.map { (name, info) in
+            (name: name, url: info.url, description: info.description)
+        }.sorted { $0.name < $1.name }
     }
 }
 

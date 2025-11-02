@@ -71,6 +71,10 @@
 "No matching languages" = "无匹配的语言";
 "Installing..." = "安装中...";
 "Installed" = "已安装";
+"Sort" = "排序";
+"Uninstalled First" = "未安装优先";
+"Installed First" = "已安装优先";
+"By Name" = "按名称";
 
 // Setup Wizard
 "Environment Setup Wizard" = "环境配置向导";
@@ -160,4 +164,55 @@
 "Select Version" = "选择版本";
 "Or enter custom version" = "或输入自定义版本";
 
+// Language Version Management
+"Installed (not set as global)" = "已安装（未设置全局）";
+"Not Installed" = "未安装";
+"Delete Language" = "删除语言";
+"Are you sure you want to delete language '%@'?\nThis will remove it from the language list, but will not uninstall installed versions." = "确定要删除 %@ 吗？\n这将从语言列表中移除，但不会卸载已安装的版本。";
+"Current Global Version" = "当前全局版本";
+"View Details" = "查看详情";
+"asdf global configuration set" = "asdf 全局配置已设置";
+"Current version differs from asdf global configuration" = "当前使用版本与 asdf 全局配置不一致";
+"asdf configured but currently using %@ version" = "asdf 已配置但当前使用 %@ 版本";
+"No global version set" = "未设置全局版本";
+"Installed Versions" = "已安装版本";
+"No versions installed yet" = "尚未安装任何版本";
+"Install New Version" = "安装新版本";
+"Select from List" = "从列表选择";
+"Manual Input" = "手动输入";
+"Available Versions" = "可用版本";
+"Loading version list..." = "加载版本列表...";
+"Select Version..." = "选择版本...";
+"No available versions" = "暂无可用版本";
+"Tip:" = "提示:";
+"npm usually comes with Node.js and doesn't need separate installation." = "npm 通常随 Node.js 一起安装，无需单独安装。";
+"You can:" = "您可以：";
+"1. Install Node.js, npm will be included automatically" = "1. 安装 Node.js，npm 会自动包含在内";
+"2. Use \"Manual Input\" to enter version number" = "2. 使用\"手动输入\"方式输入版本号尝试安装";
+"3. Check if Node.js is installed: node --version" = "3. 检查 Node.js 是否已安装: node --version";
+"This language may not have a predefined version list, or version loading failed." = "此语言可能没有预置版本列表，或版本加载失败。";
+"1. Click \"Refresh List\" to reload versions" = "1. 点击\"刷新列表\"按钮重新加载版本";
+"2. Use \"Manual Input\" to enter version number" = "2. 使用\"手动输入\"方式输入版本号";
+"3. Install manually in terminal: %@" = "3. 在终端中手动安装: %@";
+"Refresh List" = "刷新列表";
+"Tip: If installation fails, please check the official website for installation tutorials or try entering commands in the terminal" = "提示: 如果安装失败，请到官网查看安装教程或在终端输入命令进行尝试";
+"Open Terminal" = "打开终端";
+"Enter Version Number" = "输入版本号";
+"Tip: Please enter the full version number, such as 3.12.0 or latest" = "提示: 请输入完整的版本号，如 3.12.0 或 latest";
+"Installing..." = "安装中...";
+"Install Version" = "安装版本";
+"Operation Successful" = "操作成功";
+"OK" = "确定";
+"System Version Alert" = "系统版本提示";
+"(System)" = "(系统)";
+"(Global)" = "(全局)";
+"Set" = "已设置";
+"Are you sure you want to uninstall version %@?" = "确定要卸载版本 %@ 吗？";
+"Setting..." = "设置中...";
+"Set as Global" = "设为全局";
+"Confirm Uninstall" = "确认卸载";
+"Uninstall" = "卸载";
+"System" = "系统";
+"Other" = "其他";
+"Not Installed" = "未安装";
 

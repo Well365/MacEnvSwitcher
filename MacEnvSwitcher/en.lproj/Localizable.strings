@@ -70,6 +70,10 @@
 "No languages available" = "No languages available";
 "No matching languages" = "No matching languages";
 "Installing..." = "Installing...";
+"Sort" = "Sort";
+"Uninstalled First" = "Uninstalled First";
+"Installed First" = "Installed First";
+"By Name" = "By Name";
 
 // Setup Wizard
 "Environment Setup Wizard" = "Environment Setup Wizard";
@@ -130,4 +134,56 @@
 "Custom Input" = "Custom Input";
 "Select Version" = "Select Version";
 "Or enter custom version" = "Or enter custom version";
+
+// Language Version Management
+"Installed (not set as global)" = "Installed (not set as global)";
+"Not Installed" = "Not Installed";
+"Delete Language" = "Delete Language";
+"Are you sure you want to delete language '%@'?\nThis will remove it from the language list, but will not uninstall installed versions." = "Are you sure you want to delete language '%@'?\nThis will remove it from the language list, but will not uninstall installed versions.";
+"Current Global Version" = "Current Global Version";
+"View Details" = "View Details";
+"asdf global configuration set" = "asdf global configuration set";
+"Current version differs from asdf global configuration" = "Current version differs from asdf global configuration";
+"asdf configured but currently using %@ version" = "asdf configured but currently using %@ version";
+"No global version set" = "No global version set";
+"Installed Versions" = "Installed Versions";
+"No versions installed yet" = "No versions installed yet";
+"Install New Version" = "Install New Version";
+"Select from List" = "Select from List";
+"Manual Input" = "Manual Input";
+"Available Versions" = "Available Versions";
+"Loading version list..." = "Loading version list...";
+"Select Version..." = "Select Version...";
+"No available versions" = "No available versions";
+"Tip:" = "Tip:";
+"npm usually comes with Node.js and doesn't need separate installation." = "npm usually comes with Node.js and doesn't need separate installation.";
+"You can:" = "You can:";
+"1. Install Node.js, npm will be included automatically" = "1. Install Node.js, npm will be included automatically";
+"2. Use \"Manual Input\" to enter version number" = "2. Use \"Manual Input\" to enter version number";
+"3. Check if Node.js is installed: node --version" = "3. Check if Node.js is installed: node --version";
+"This language may not have a predefined version list, or version loading failed." = "This language may not have a predefined version list, or version loading failed.";
+"1. Click \"Refresh List\" to reload versions" = "1. Click \"Refresh List\" to reload versions";
+"2. Use \"Manual Input\" to enter version number" = "2. Use \"Manual Input\" to enter version number";
+"3. Install manually in terminal: %@" = "3. Install manually in terminal: %@";
+"Refresh List" = "Refresh List";
+"Tip: If installation fails, please check the official website for installation tutorials or try entering commands in the terminal" = "Tip: If installation fails, please check the official website for installation tutorials or try entering commands in the terminal";
+"Open Terminal" = "Open Terminal";
+"Enter Version Number" = "Enter Version Number";
+"Tip: Please enter the full version number, such as 3.12.0 or latest" = "Tip: Please enter the full version number, such as 3.12.0 or latest";
+"Installing..." = "Installing...";
+"Install Version" = "Install Version";
+"Operation Successful" = "Operation Successful";
+"OK" = "OK";
+"System Version Alert" = "System Version Alert";
+"(System)" = "(System)";
+"(Global)" = "(Global)";
+"Set" = "Set";
+"Are you sure you want to uninstall version %@?" = "Are you sure you want to uninstall version %@?";
+"Setting..." = "Setting...";
+"Set as Global" = "Set as Global";
+"Confirm Uninstall" = "Confirm Uninstall";
+"Uninstall" = "Uninstall";
+"System" = "System";
+"Other" = "Other";
+"Not Installed" = "Not Installed";
 

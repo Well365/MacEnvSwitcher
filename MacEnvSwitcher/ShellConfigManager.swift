@@ -182,6 +182,10 @@ class ShellConfigManager {
             let pathsToRemove = "/usr/local/opt/node|/opt/homebrew/opt/node|/usr/local/lib/node_modules"
             return "export PATH=\"\(pathPrefix):\"$(echo $PATH | tr ':' '\\n' | grep -vE \"\(pathsToRemove)\" | grep -v \"\\.asdf/shims\" | grep -v \"^\(pathPrefix)$\" | tr '\\n' ':' | sed 's/:$//' | sed 's/^://')"
             
+        case "gradle":
+            let pathsToRemove = "/usr/local/opt/gradle|/opt/homebrew/opt/gradle"
+            return "export PATH=\"\(pathPrefix):\"$(echo $PATH | tr ':' '\\n' | grep -vE \"\(pathsToRemove)\" | grep -v \"\\.asdf/shims\" | grep -v \"^\(pathPrefix)$\" | tr '\\n' ':' | sed 's/:$//' | sed 's/^://')"
+            
         default:
             // 通用处理：去重并前置新路径，移除 asdf shims
             return "export PATH=\"\(pathPrefix):\"$(echo $PATH | tr ':' '\\n' | grep -v \"\\.asdf/shims\" | awk '!seen[$0]++' | grep -v \"^\(pathPrefix)$\" | tr '\\n' ':' | sed 's/:$//' | sed 's/^://')"

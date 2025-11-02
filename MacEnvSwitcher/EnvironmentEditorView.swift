@@ -367,6 +367,7 @@ struct VersionEditorSheet: View {
                                 Image(systemName: "chevron.down.circle")
                             }
                             .padding(8)
+                            .frame(width: 390, height: 44)
                             .background(Color.gray.opacity(0.1))
                             .cornerRadius(6)
                         }

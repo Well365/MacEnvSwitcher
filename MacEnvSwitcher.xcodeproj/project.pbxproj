@@ -27,6 +27,7 @@
 		AI /* softConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BG /* softConfig.swift */; };
 		AJ /* ToolVersionsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BH /* ToolVersionsManager.swift */; };
 		AK /* ShellConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BI /* ShellConfigManager.swift */; };
+		AL /* LanguageDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = BJ /* LanguageDetector.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -48,6 +49,7 @@
 		BG /* softConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = softConfig.swift; sourceTree = "<group>"; };
 		BH /* ToolVersionsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolVersionsManager.swift; sourceTree = "<group>"; };
 		BI /* ShellConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellConfigManager.swift; sourceTree = "<group>"; };
+		BJ /* LanguageDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageDetector.swift; sourceTree = "<group>"; };
 		BL /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C2 /* LanguageManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageManagementView.swift; sourceTree = "<group>"; };
 		L1 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -85,6 +87,7 @@
 				BG /* softConfig.swift */,
 				BH /* ToolVersionsManager.swift */,
 				BI /* ShellConfigManager.swift */,
+				BJ /* LanguageDetector.swift */,
 				B4 /* TaskModel.swift */,
 				B5 /* Shell.swift */,
 				B6 /* Detectors.swift */,
@@ -193,6 +196,7 @@
 				AI /* softConfig.swift in Sources */,
 				AJ /* ToolVersionsManager.swift in Sources */,
 				AK /* ShellConfigManager.swift in Sources */,
+				AL /* LanguageDetector.swift in Sources */,
 				A4 /* TaskModel.swift in Sources */,
 				A5 /* Shell.swift in Sources */,
 				A6 /* Detectors.swift in Sources */,
