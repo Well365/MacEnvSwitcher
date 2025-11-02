@@ -186,4 +186,22 @@
 "System" = "System";
 "Other" = "Other";
 "Not Installed" = "Not Installed";
+"Version Details" = "Version Details";
+"Basic Information" = "Basic Information";
+"Version Source" = "Version Source";
+"Current Version" = "Current Version";
+"asdf Global Version" = "asdf Global Version";
+"asdf global configuration differs from current version" = "asdf global configuration differs from current version";
+"Path Information" = "Path Information";
+"Version Path" = "Version Path";
+"Executable Path" = "Executable Path";
+"Not available" = "Not available";
+"Not found in PATH" = "Not found in PATH";
+"Total:" = "Total:";
+"versions" = "versions";
+"asdf versions:" = "asdf versions:";
+"(Current)" = "(Current)";
+"Close" = "Close";
+"Copy to Clipboard" = "Copy to Clipboard";
+"Version:" = "Version:";
 

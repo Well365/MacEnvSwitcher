@@ -215,4 +215,21 @@
 "System" = "系统";
 "Other" = "其他";
 "Not Installed" = "未安装";
-
+"Version Details" = "版本详情";
+"Basic Information" = "基本信息";
+"Version Source" = "版本来源";
+"Current Version" = "当前版本";
+"asdf Global Version" = "asdf 全局版本";
+"asdf global configuration differs from current version" = "asdf 全局配置与当前版本不一致";
+"Path Information" = "路径信息";
+"Version Path" = "版本路径";
+"Executable Path" = "可执行文件路径";
+"Not available" = "不可用";
+"Not found in PATH" = "在 PATH 中未找到";
+"Total:" = "总计：";
+"versions" = "个版本";
+"asdf versions:" = "asdf 版本：";
+"(Current)" = "（当前）";
+"Close" = "关闭";
+"Copy to Clipboard" = "复制到剪贴板";
+"Version:" = "版本：";

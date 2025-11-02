@@ -257,11 +257,25 @@ struct LanguageDetailView: View {
     @State private var versionLoadingStartTime: Date? = nil
     @State private var showVersionLoadingTimeout: Bool = false
     @State private var showTerminalCommandCopied: Bool = false
+    @State private var showVersionDetails: Bool = false
+    @State private var versionDetailInfo: VersionDetailInfo?
     
     // 直接从 viewModel.languages 获取最新的语言数据
     // SwiftUI 会自动响应 @Published 属性的变化
     private var currentLanguage: ProgrammingLanguage? {
         viewModel.languages.first(where: { $0.id == language.id })
+    }
+    
+    // 版本详情信息结构
+    struct VersionDetailInfo {
+        let language: ProgrammingLanguage
+        let version: String
+        let versionSource: VersionSource
+        let versionPath: String?
+        let asdfGlobalVersion: String?
+        let executablePath: String?
+        let allInstalledVersions: [String]
+        let asdfInstalledVersions: [String]
     }
     
     var body: some View {
@@ -319,7 +333,33 @@ struct LanguageDetailView: View {
                                     .cornerRadius(4)
                                 
                             Button(tr("View Details")) {
-                                    viewModel.showVersionDetails(language: lang, version: currentVersion)
+                                    // 收集版本详细信息
+                                    let toolName: String = {
+                                        switch lang.id {
+                                        case "nodejs": return "node"
+                                        case "golang": return "go"
+                                        default: return lang.id
+                                        }
+                                    }()
+                                    
+                                    // 获取可执行文件路径
+                                    let whichResult = Shell.run("which \(toolName) 2>/dev/null")
+                                    let executablePath = whichResult.code == 0 && !whichResult.out.isEmpty
+                                        ? whichResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                                        : nil
+                                    
+                                    // 创建详情信息
+                                    versionDetailInfo = VersionDetailInfo(
+                                        language: lang,
+                                        version: currentVersion,
+                                        versionSource: lang.versionSource,
+                                        versionPath: lang.versionPath,
+                                        asdfGlobalVersion: lang.asdfGlobalVersion,
+                                        executablePath: executablePath,
+                                        allInstalledVersions: lang.installedVersions,
+                                        asdfInstalledVersions: lang.asdfInstalledVersions
+                                    )
+                                    showVersionDetails = true
                                 }
                                 .font(.caption)
                             }
@@ -485,58 +525,60 @@ struct LanguageDetailView: View {
                     if viewModel.versionSelectionMode == .fromList {
                         // 可用版本下拉列表
                         VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 16) {
-                                // "可用版本"标签
-                                Text(tr("Available Versions"))
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                    .frame(minWidth: 100, alignment: .leading)
+                            // 直接显示版本选择框，不显示"可用版本"标题
+                            if let lang = currentLanguage {
+                                // 检查是否应该显示加载状态
+                                // 如果版本列表为空，且没有超时，则显示加载动画
+                                let isLoading = lang.availableVersions.isEmpty && !showVersionLoadingTimeout
                                 
-                                // 版本选择框 - 紧跟在标签后面，有足够空间
-                                if let lang = currentLanguage {
-                                    // 检查是否应该显示加载状态
-                                    // 如果版本列表为空，且没有超时，则显示加载动画
-                                    let isLoading = lang.availableVersions.isEmpty && !showVersionLoadingTimeout
-                                    
-                                    if isLoading {
-                                        HStack {
-                                            ProgressView()
-                                                .scaleEffect(0.8)
-                                            Text(tr("Loading version list..."))
-                                                .foregroundColor(.secondary)
-                                        }
-                                        .frame(maxWidth: 450)
-                                        .onAppear {
-                                            // 记录加载开始时间
-                                            if versionLoadingStartTime == nil {
-                                                versionLoadingStartTime = Date()
-                                                let currentLangId = lang.id
-                                                
-                                                // 5秒后如果还在加载，停止显示加载动画
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                                                    // 检查当前语言是否仍然是同一个，且版本列表仍为空
-                                                    if let currentLang = self.currentLanguage,
-                                                       currentLang.id == currentLangId,
-                                                       currentLang.availableVersions.isEmpty {
-                                                        self.showVersionLoadingTimeout = true
-                                                        // 如果超时后还是没有版本，显示预设版本
-                                                        if let index = self.viewModel.languages.firstIndex(where: { $0.id == currentLangId }) {
-                                                            let predefinedVersions = SoftConfig.getPredefinedVersions(for: currentLangId)
-                                                            if !predefinedVersions.isEmpty {
-                                                                self.viewModel.languages[index].availableVersions = predefinedVersions
-                                                            }
+                                if isLoading {
+                            HStack {
+                                        ProgressView()
+                                            .scaleEffect(0.8)
+                                        Text(tr("Loading version list..."))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .onAppear {
+                                        // 记录加载开始时间
+                                        if versionLoadingStartTime == nil {
+                                            versionLoadingStartTime = Date()
+                                            let currentLangId = lang.id
+                                            
+                                            // 5秒后如果还在加载，停止显示加载动画
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                                                // 检查当前语言是否仍然是同一个，且版本列表仍为空
+                                                if let currentLang = self.currentLanguage,
+                                                   currentLang.id == currentLangId,
+                                                   currentLang.availableVersions.isEmpty {
+                                                    self.showVersionLoadingTimeout = true
+                                                    // 如果超时后还是没有版本，显示预设版本
+                                                    if let index = self.viewModel.languages.firstIndex(where: { $0.id == currentLangId }) {
+                                                        let predefinedVersions = SoftConfig.getPredefinedVersions(for: currentLangId)
+                                                        if !predefinedVersions.isEmpty {
+                                                            self.viewModel.languages[index].availableVersions = predefinedVersions
                                                         }
                                                     }
                                                 }
                                             }
                                         }
-                                    } else {
-                                        // 显示版本选择器
-                                        let versionsToShow = lang.availableVersions.isEmpty 
-                                            ? SoftConfig.getPredefinedVersions(for: lang.id)
-                                            : lang.availableVersions
-                                        
-                                        if !versionsToShow.isEmpty {
+                                    }
+                                } else {
+                                    // 显示版本选择器
+                                    let versionsToShow = lang.availableVersions.isEmpty 
+                                        ? SoftConfig.getPredefinedVersions(for: lang.id)
+                                        : lang.availableVersions
+                                    
+                                    if !versionsToShow.isEmpty {
+                                        HStack(spacing: 12) {
+                                            // "选择版本"标签 - 左侧
+                                            Text(tr("Select Version"))
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                                .frame(width: 80, alignment: .leading)
+                                            
+                                            // 版本选择下拉框 - 中间位置（"这里"的位置）
                                             Picker("", selection: $selectedVersion) {
                                                 Text(tr("Select Version...")).tag("")
                                                 ForEach(versionsToShow, id: \.self) { version in
@@ -544,71 +586,69 @@ struct LanguageDetailView: View {
                                                 }
                                             }
                                             .labelsHidden()
-                                            .frame(width: 450, height: 44) // 增加宽度，提供足够空间
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 4)
-                                        } else {
-                                            VStack(alignment: .leading, spacing: 6) {
-                                                Text(tr("No available versions"))
-                                                    .foregroundColor(.secondary)
-                                                
-                                                // 添加提示信息
-                                                Text("💡 \(tr("Tip:"))")
-                                                    .font(.caption)
-                                                    .foregroundColor(.orange)
-                                                
-                                                // 针对 npm 的特殊提示
-                                                if lang.id == "npm" {
-                                                    Text(tr("npm usually comes with Node.js and doesn't need separate installation."))
-                                                        .font(.caption2)
-                                                        .foregroundColor(.secondary)
-                                                    Text(tr("You can:"))
-                                                        .font(.caption2)
-                                                        .foregroundColor(.secondary)
-                                                    Text(tr("1. Install Node.js, npm will be included automatically"))
-                                                        .font(.caption2)
-                                                        .foregroundColor(.secondary)
-                                                    Text(tr("2. Use \"Manual Input\" to enter version number"))
-                                                        .font(.caption2)
-                                                        .foregroundColor(.secondary)
-                                                    Text(tr("3. Check if Node.js is installed: node --version"))
-                                                        .font(.system(.caption2, design: .monospaced))
-                                                        .foregroundColor(.secondary)
-                                                } else {
-                                                    Text(tr("This language may not have a predefined version list, or version loading failed."))
-                                                        .font(.caption2)
-                                                        .foregroundColor(.secondary)
-                                                    Text(tr("You can:"))
-                                                        .font(.caption2)
-                                                        .foregroundColor(.secondary)
-                                                    Text(tr("1. Click \"Refresh List\" to reload versions"))
-                                                        .font(.caption2)
-                                                        .foregroundColor(.secondary)
-                                                    Text(tr("2. Use \"Manual Input\" to enter version number"))
-                                                        .font(.caption2)
-                                                        .foregroundColor(.secondary)
-                                                    Text(String(format: tr("3. Install manually in terminal: %@"), getInstallCommand(for: lang.id, version: "latest")))
-                                                        .font(.system(.caption2, design: .monospaced))
-                                                        .foregroundColor(.secondary)
+                                            .frame(minWidth: 350, maxWidth: .infinity)
+                                            .frame(height: 50)
+                                            
+                                            // 刷新列表按钮 - 右侧
+                                            Button(tr("Refresh List")) {
+                                                if let lang = currentLanguage {
+                                                    viewModel.loadAvailableVersions(language: lang)
                                                 }
                                             }
-                                            .frame(maxWidth: 450, alignment: .leading)
-                                            .padding(.vertical, 8)
-                                            .padding(.horizontal, 8)
-                                            .background(Color.orange.opacity(0.1))
-                                            .cornerRadius(6)
+                                            .font(.caption)
                                         }
+                                    } else {
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            Text(tr("No available versions"))
+                                                .foregroundColor(.secondary)
+                                            
+                                            // 添加提示信息
+                                            Text("💡 \(tr("Tip:"))")
+                                                .font(.caption)
+                                                .foregroundColor(.orange)
+                                            
+                                            // 针对 npm 的特殊提示
+                                            if lang.id == "npm" {
+                                                Text(tr("npm usually comes with Node.js and doesn't need separate installation."))
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                                Text(tr("You can:"))
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                                Text(tr("1. Install Node.js, npm will be included automatically"))
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                                Text(tr("2. Use \"Manual Input\" to enter version number"))
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                                Text(tr("3. Check if Node.js is installed: node --version"))
+                                                    .font(.system(.caption2, design: .monospaced))
+                                                    .foregroundColor(.secondary)
+                                            } else {
+                                                Text(tr("This language may not have a predefined version list, or version loading failed."))
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                                Text(tr("You can:"))
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                                Text(tr("1. Click \"Refresh List\" to reload versions"))
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                                Text(tr("2. Use \"Manual Input\" to enter version number"))
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                                Text(String(format: tr("3. Install manually in terminal: %@"), getInstallCommand(for: lang.id, version: "latest")))
+                                                    .font(.system(.caption2, design: .monospaced))
+                                                    .foregroundColor(.secondary)
+                                            }
+                                        }
+                                        .frame(maxWidth: 520, alignment: .leading)
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 8)
+                                        .background(Color.orange.opacity(0.1))
+                                        .cornerRadius(6)
                                     }
                                 }
-                                
-                                Spacer()
-                                
-                                Button(tr("Refresh List")) {
-                                    if let lang = currentLanguage {
-                                        viewModel.loadAvailableVersions(language: lang)
-                                    }
-                                }
-                                .font(.caption)
                             }
                             
                             // 安装提示和终端按钮 - 移到选择框下方
@@ -745,6 +785,11 @@ struct LanguageDetailView: View {
         } message: {
             Text(systemVersionMessage)
         }
+        .sheet(isPresented: $showVersionDetails) {
+            if let detailInfo = versionDetailInfo {
+                VersionDetailView(detailInfo: detailInfo)
+            }
+        }
         .onAppear {
             if let lang = currentLanguage {
                 // 如果切换了语言，清除之前的加载状态
@@ -753,7 +798,7 @@ struct LanguageDetailView: View {
                 versionLoadingStartTime = nil
                 showVersionLoadingTimeout = false
                 viewModel.loadAvailableVersions(language: lang)
-            }
+        }
         }
         .onChange(of: currentLanguage?.id) { _ in
             // 语言切换时重置加载状态
@@ -1235,6 +1280,9 @@ class LanguageManagementViewModel: ObservableObject {
     func refreshLanguageStatus(at index: Int, preserveVersion: String? = nil) {
         guard index < languages.count else { return }
         let language = languages[index]
+        let taskId = UUID().uuidString.prefix(8)
+        
+        print("🚀 [DEBUG-\(taskId)] 开始刷新语言状态: \(language.id) (index=\(index))")
         
         DispatchQueue.global(qos: .userInitiated).async {
             // 1. 读取 ~/.tool-versions 文件获取 asdf 全局配置
@@ -1264,61 +1312,129 @@ class LanguageManagementViewModel: ObservableObject {
             
             // 对于 Fastlane，额外检测 Homebrew 和 gem 安装的版本
             if language.id == "fastlane" {
-                // 检查 Homebrew 安装
-                let brewCheck = Shell.run("brew list --formula fastlane 2>/dev/null | head -1")
-                if brewCheck.code == 0 {
-                    // 通过 fastlane --version 获取版本
-                    let versionResult = Shell.run("fastlane --version 2>/dev/null | head -1")
-                    if versionResult.code == 0, !versionResult.out.isEmpty {
-                        let output = versionResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
-                        // 提取版本号 fastlane 2.228.0 -> 2.228.0
-                        if let versionMatch = output.range(of: #"fastlane (\d+\.\d+\.\d+)"#, options: .regularExpression) {
-                            let fullMatch = String(output[versionMatch])
-                            let version = fullMatch.replacingOccurrences(of: "fastlane ", with: "")
-                            if !installedVersions.contains(version) {
-                                installedVersions.append(version)
-                                print("🔍 [DEBUG] 检测到 Homebrew 安装的 fastlane: \(version)")
-                            }
-                        } else if let versionMatch = output.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
-                            let version = String(output[versionMatch])
-                            if !installedVersions.contains(version) {
-                                installedVersions.append(version)
-                                print("🔍 [DEBUG] 检测到 Homebrew 安装的 fastlane: \(version)")
-                            }
+                print("🔍 [DEBUG-\(taskId)] 开始检测 fastlane 安装状态...")
+                // fastlane --version 输出多行，版本号在最后一行，使用 tail -1 获取最后一行
+                let versionResult = Shell.run("fastlane --version 2>/dev/null | tail -1")
+                print("🔍 [DEBUG-\(taskId)] fastlane --version 执行结果: code=\(versionResult.code), output=\(versionResult.out.trimmingCharacters(in: .whitespacesAndNewlines))")
+                
+                // 如果 tail -1 失败，尝试获取完整输出并查找版本号
+                var output = versionResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                if output.isEmpty || !output.contains("fastlane") {
+                    let fullOutputResult = Shell.run("fastlane --version 2>/dev/null")
+                    print("🔍 [DEBUG-\(taskId)] fastlane --version 完整输出:\n\(fullOutputResult.out)")
+                    // 从完整输出中查找包含版本号的行
+                    let lines = fullOutputResult.out.components(separatedBy: .newlines)
+                    for line in lines.reversed() {
+                        let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmedLine.contains("fastlane") && trimmedLine.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) != nil {
+                            output = trimmedLine
+                            break
                         }
                     }
                 }
                 
-                // 检查 gem 安装
-                let gemCheck = Shell.run("gem list fastlane --local 2>/dev/null | grep fastlane")
-                if gemCheck.code == 0, !gemCheck.out.isEmpty {
-                    // 解析 gem list 输出，格式通常是: fastlane (2.228.0)
-                    let output = gemCheck.out.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if let versionMatch = output.range(of: #"fastlane \(([^)]+)\)"#, options: .regularExpression) {
+                if versionResult.code == 0 || !output.isEmpty {
+                    // 提取版本号 fastlane 2.228.0 -> 2.228.0
+                    var version: String? = nil
+                    if let versionMatch = output.range(of: #"fastlane (\d+\.\d+\.\d+)"#, options: .regularExpression) {
                         let fullMatch = String(output[versionMatch])
-                        let version = fullMatch.replacingOccurrences(of: "fastlane (", with: "").replacingOccurrences(of: ")", with: "")
-                        // 可能包含多个版本，取第一个
-                        let firstVersion = version.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? version
-                        if !installedVersions.contains(firstVersion) {
-                            installedVersions.append(firstVersion)
-                            print("🔍 [DEBUG] 检测到 gem 安装的 fastlane: \(firstVersion)")
-                        }
+                        version = fullMatch.replacingOccurrences(of: "fastlane ", with: "")
+                    } else if let versionMatch = output.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
+                        version = String(output[versionMatch])
                     }
+                    
+                    if let ver = version {
+                        print("🔍 [DEBUG-\(taskId)] 提取到 fastlane 版本: \(ver)")
+                        
+                        // 检查安装来源
+                        var isHomebrew = false
+                        var isGem = false
+                        var detectedPath: String? = nil
+                        
+                        // 检查路径判断来源
+                        let whichResult = Shell.run("which fastlane 2>/dev/null")
+                        if whichResult.code == 0 {
+                            let pathString = whichResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                            detectedPath = pathString
+                            print("🔍 [DEBUG-\(taskId)] which fastlane 路径: \(pathString)")
+                            
+                            if !pathString.isEmpty {
+                                if pathString.contains("/opt/homebrew/") || pathString.contains("/usr/local/bin/") || pathString.contains("/usr/local/opt/") {
+                                    isHomebrew = true
+                                    print("🔍 [DEBUG-\(taskId)] 通过路径判断为 Homebrew 安装")
+                                } else if pathString.contains("/.gem/") || pathString.contains("/usr/local/lib/ruby") || pathString.contains("/System/Library/Frameworks/Ruby.framework") {
+                                    isGem = true
+                                    print("🔍 [DEBUG-\(taskId)] 通过路径判断为 gem 安装")
+                                }
+                            }
+                        }
+                        
+                        // 如果路径判断失败，通过 brew list 判断
+                        if !isHomebrew && !isGem {
+                            let brewCheck = Shell.run("brew list fastlane 2>/dev/null")
+                            print("🔍 [DEBUG-\(taskId)] brew list fastlane 结果: code=\(brewCheck.code), output=\(brewCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))")
+                            if brewCheck.code == 0 || brewCheck.out.contains("fastlane") {
+                                isHomebrew = true
+                                print("🔍 [DEBUG-\(taskId)] 通过 brew list 判断为 Homebrew 安装")
+                            } else {
+                                // 检查 gem
+                                let gemCheck = Shell.run("gem list fastlane --local 2>/dev/null | grep fastlane")
+                                print("🔍 [DEBUG-\(taskId)] gem list fastlane 结果: code=\(gemCheck.code), output=\(gemCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))")
+                                if gemCheck.code == 0, !gemCheck.out.isEmpty {
+                                    isGem = true
+                                    print("🔍 [DEBUG-\(taskId)] 通过 gem list 判断为 gem 安装")
+                                }
+                            }
+                        }
+                        
+                        // 添加到已安装版本列表
+                        if !installedVersions.contains(ver) {
+                            installedVersions.append(ver)
+                            if isHomebrew {
+                                print("✅ [DEBUG-\(taskId)] 检测到 Homebrew 安装的 fastlane: \(ver), 路径: \(detectedPath ?? "未知")")
+                            } else if isGem {
+                                print("✅ [DEBUG-\(taskId)] 检测到 gem 安装的 fastlane: \(ver), 路径: \(detectedPath ?? "未知")")
+                            } else {
+                                print("✅ [DEBUG-\(taskId)] 检测到 fastlane: \(ver), 路径: \(detectedPath ?? "未知")")
+                            }
+                        } else {
+                            print("ℹ️ [DEBUG-\(taskId)] fastlane 版本 \(ver) 已在已安装列表中")
+                        }
+                    } else {
+                        print("⚠️ [DEBUG-\(taskId)] 无法从输出中提取 fastlane 版本号: \(output)")
+                    }
+                } else {
+                    print("⚠️ [DEBUG-\(taskId)] fastlane --version 执行失败或输出为空")
                 }
+                print("✅ [DEBUG-\(taskId)] fastlane 检测完成，installedVersions.count=\(installedVersions.count), installedVersions=\(installedVersions)")
+            } else {
+                print("ℹ️ [DEBUG-\(taskId)] 不是 fastlane，跳过 fastlane 特殊检测逻辑")
             }
+            
+            print("🔍 [DEBUG-\(taskId)] 步骤3完成，准备检测系统安装版本，language.id=\(language.id), installedVersions.count=\(installedVersions.count)")
             
             // 对于其他语言，也尝试检测系统安装的版本
             // 通过检测系统路径中的可执行文件来判断
             // 即使 asdf 插件已安装但没有版本，也应该检测系统版本
-            if let systemVersion = LanguageDetector.detectSystemInstalledVersion(languageId: language.id) {
-                // 如果系统版本不在列表中，添加到列表
-                if !installedVersions.contains(systemVersion) {
-                    installedVersions.append(systemVersion)
-                    print("🔍 [DEBUG] 检测到系统安装的 \(language.id): \(systemVersion)")
+            // 注意：fastlane 已经在上面特殊检测中处理了，这里跳过避免重复检测
+            if language.id != "fastlane" {
+                if let systemVersion = LanguageDetector.detectSystemInstalledVersion(languageId: language.id) {
+                    // 如果系统版本不在列表中，添加到列表
+                    if !installedVersions.contains(systemVersion) {
+                        installedVersions.append(systemVersion)
+                        print("🔍 [DEBUG-\(taskId)] 检测到系统安装的 \(language.id): \(systemVersion)")
+                    }
+                } else {
+                    print("ℹ️ [DEBUG-\(taskId)] 未检测到系统安装的 \(language.id)")
                 }
+            } else {
+                print("ℹ️ [DEBUG-\(taskId)] fastlane 已在特殊检测中处理，跳过系统安装版本检测")
             }
             
+            print("🔍 [DEBUG-\(taskId)] 步骤3.5完成，installedVersions.count=\(installedVersions.count), installedVersions=\(installedVersions)")
+            
             // 4. 检测当前实际使用的版本和来源（使用统一的 LanguageDetector）
+            print("🔍 [DEBUG-\(taskId)] 准备调用 LanguageDetector.detectCurrentVersionAndSource for \(language.id)")
             let detectionResult = LanguageDetector.detectCurrentVersionAndSource(
                 languageId: language.id,
                 asdfPluginInstalled: asdfPluginInstalled,
@@ -1327,6 +1443,46 @@ class LanguageManagementViewModel: ObservableObject {
             var currentVersion = detectionResult.version
             var versionSource = detectionResult.source
             var versionPath = detectionResult.path
+            
+            print("🔍 [DEBUG-\(taskId)] LanguageDetector 返回结果: \(language.id) - version=\(currentVersion ?? "nil"), source=\(versionSource), path=\(versionPath ?? "nil")")
+            
+            // 对于 fastlane，如果检测到了已安装版本但 currentVersion 为空，手动设置
+            if language.id == "fastlane" {
+                print("🔍 [DEBUG-\(taskId)] fastlane 检测后检查: currentVersion=\(currentVersion ?? "nil"), installedVersions.count=\(installedVersions.count)")
+                if currentVersion == nil && !installedVersions.isEmpty {
+                    print("🔍 [DEBUG-\(taskId)] fastlane currentVersion 为空，执行手动设置逻辑")
+                // 使用已安装列表中的第一个版本作为当前版本
+                currentVersion = installedVersions.first
+                // 通过检查路径判断来源
+                let whichResult = Shell.run("which fastlane 2>/dev/null")
+                if whichResult.code == 0 {
+                    let pathString = whichResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if pathString.contains("/opt/homebrew/") || pathString.contains("/usr/local/bin/") || pathString.contains("/usr/local/opt/") {
+                        versionSource = .homebrew
+                        versionPath = pathString
+                    } else if pathString.contains("/.gem/") || pathString.contains("/usr/local/lib/ruby") || pathString.contains("/System/Library/Frameworks/Ruby.framework") {
+                        versionSource = .other
+                        versionPath = pathString
+                    } else {
+                        versionSource = .other
+                        versionPath = pathString
+                    }
+                } else {
+                    // 如果 which 找不到，尝试通过 brew list 判断
+                    let brewCheck = Shell.run("brew list fastlane 2>/dev/null")
+                    if brewCheck.code == 0 || brewCheck.out.contains("fastlane") {
+                        versionSource = .homebrew
+                    } else {
+                        versionSource = .other
+                    }
+                }
+                    print("✅ [DEBUG-\(taskId)] fastlane 自动设置当前版本: \(currentVersion ?? "nil"), 来源: \(versionSource)")
+                } else if currentVersion != nil {
+                    print("✅ [DEBUG-\(taskId)] fastlane currentVersion 已存在，无需手动设置: \(currentVersion ?? "nil")")
+                } else {
+                    print("⚠️ [DEBUG-\(taskId)] fastlane currentVersion 为空且 installedVersions 也为空")
+                }
+            }
             
             // 5. 检查是否存在系统版本配置（在 .zshrc 等文件中）
             let hasSystemVersionConfig = ShellConfigManager.hasSystemVersionConfig(languageId: language.id)
@@ -1363,11 +1519,18 @@ class LanguageManagementViewModel: ObservableObject {
             let isInstalled = installedVersions.count > 0 || 
                              (currentVersion != nil && versionSource != .notInstalled)
             
-            print("📊 [DEBUG] 安装状态判断: \(language.id) - isInstalled=\(isInstalled), installedVersions.count=\(installedVersions.count), asdfPluginInstalled=\(asdfPluginInstalled)")
+            print("📊 [DEBUG-\(taskId)] 安装状态判断: \(language.id) - isInstalled=\(isInstalled), installedVersions.count=\(installedVersions.count), currentVersion=\(currentVersion ?? "nil"), versionSource=\(versionSource), asdfPluginInstalled=\(asdfPluginInstalled)")
+            if language.id == "fastlane" {
+                print("🔍 [DEBUG-\(taskId)] fastlane 详细状态: installedVersions=\(installedVersions), currentVersion=\(currentVersion ?? "nil"), versionSource=\(versionSource), isInstalled=\(isInstalled)")
+            }
             
             DispatchQueue.main.async {
+                print("🎯 [DEBUG-\(taskId)] 进入主线程更新UI: \(language.id)")
                 // 确保索引仍然有效
-                guard index < self.languages.count else { return }
+                guard index < self.languages.count else {
+                    print("⚠️ [DEBUG-\(taskId)] 索引无效: index=\(index), languages.count=\(self.languages.count)")
+                    return
+                }
                 
                 // 创建更新后的语言对象，确保 SwiftUI 检测到变化
                 var updatedLanguage = self.languages[index]
@@ -1394,13 +1557,27 @@ class LanguageManagementViewModel: ObservableObject {
                     }
                 }
                 
-                print("✅ [DEBUG] 刷新后状态: \(language.id) currentVersion=\(updatedLanguage.currentVersion ?? "nil"), asdfGlobalVersion=\(updatedLanguage.asdfGlobalVersion ?? "nil")")
+                print("✅ [DEBUG-\(taskId)] 刷新后状态: \(language.id) currentVersion=\(updatedLanguage.currentVersion ?? "nil"), asdfGlobalVersion=\(updatedLanguage.asdfGlobalVersion ?? "nil"), isInstalled=\(updatedLanguage.isInstalled), installedVersions.count=\(updatedLanguage.installedVersions.count)")
+                if language.id == "fastlane" {
+                    print("🔍 [DEBUG-\(taskId)] fastlane UI更新前: currentVersion=\(updatedLanguage.currentVersion ?? "nil"), versionSource=\(updatedLanguage.versionSource), isInstalled=\(updatedLanguage.isInstalled), installedVersions=\(updatedLanguage.installedVersions)")
+                }
                 
                 // 替换整个对象以触发视图更新
                 self.languages[index] = updatedLanguage
                 
                 // 手动触发视图更新（关键：确保 SwiftUI 检测到数组元素的变化）
                 self.objectWillChange.send()
+                
+                print("✅ [DEBUG-\(taskId)] UI更新完成: \(language.id) - 已设置 languages[\(index)] = \(updatedLanguage.displayName), isInstalled=\(updatedLanguage.isInstalled), installedVersions.count=\(updatedLanguage.installedVersions.count)")
+                
+                // 验证更新是否成功
+                if let verifyLang = self.languages.first(where: { $0.id == language.id }) {
+                    print("🔍 [DEBUG-\(taskId)] 验证更新: \(language.id) - verifyLang.isInstalled=\(verifyLang.isInstalled), verifyLang.installedVersions.count=\(verifyLang.installedVersions.count)")
+                    if language.id == "fastlane" {
+                        print("🔍 [DEBUG-\(taskId)] fastlane 验证详情: installedVersions=\(verifyLang.installedVersions), currentVersion=\(verifyLang.currentVersion ?? "nil")")
+                    }
+                }
+                print("🏁 [DEBUG-\(taskId)] 刷新完成: \(language.id)")
             }
         }
     }
@@ -1982,7 +2159,7 @@ class LanguageManagementViewModel: ObservableObject {
             if checkInstalled.code == 0 {
                 log += "✅ Fastlane 已通过 Homebrew 安装\n"
                 // 验证安装
-                let verifyResult = Shell.run("fastlane --version 2>/dev/null | head -1")
+                let verifyResult = Shell.run("fastlane --version 2>/dev/null | tail -1")
                 if verifyResult.code == 0 && !verifyResult.out.isEmpty {
                     log += "✅ 验证成功: \(verifyResult.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
                     return true
@@ -2000,7 +2177,7 @@ class LanguageManagementViewModel: ObservableObject {
             if brewInstallResult.code == 0 {
                 log += "\n✅ Homebrew 安装成功！\n"
                 // 验证安装
-                let verifyResult = Shell.run("fastlane --version 2>/dev/null | head -1")
+                let verifyResult = Shell.run("fastlane --version 2>/dev/null | tail -1")
                 if verifyResult.code == 0 && !verifyResult.out.isEmpty {
                     log += "✅ 验证成功: \(verifyResult.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
                     return true
@@ -2022,7 +2199,7 @@ class LanguageManagementViewModel: ObservableObject {
             let checkInstalled = Shell.run("gem list fastlane --local 2>/dev/null | grep fastlane")
             if checkInstalled.code == 0 && !checkInstalled.out.isEmpty {
                 log += "✅ Fastlane 已通过 gem 安装\n"
-                let verifyResult = Shell.run("fastlane --version 2>/dev/null | head -1")
+                let verifyResult = Shell.run("fastlane --version 2>/dev/null | tail -1")
                 if verifyResult.code == 0 && !verifyResult.out.isEmpty {
                     log += "✅ 验证成功: \(verifyResult.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
                     return true
@@ -2043,7 +2220,7 @@ class LanguageManagementViewModel: ObservableObject {
             if gemInstallResult.code == 0 {
                 log += "\n✅ Gem 安装成功！\n"
                 // 验证安装
-                let verifyResult = Shell.run("fastlane --version 2>/dev/null | head -1")
+                let verifyResult = Shell.run("fastlane --version 2>/dev/null | tail -1")
                 if verifyResult.code == 0 && !verifyResult.out.isEmpty {
                     log += "✅ 验证成功: \(verifyResult.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
                     return true
@@ -2154,10 +2331,11 @@ class LanguageManagementViewModel: ObservableObject {
                 limit = 60
                 timeout = 15  // PHP 可能需要更长时间来获取版本列表
             } else if languageId == "fastlane" {
-                // fastlane 版本列表可能比较长，获取最新的版本
-                command = "asdf list all \(languageId) 2>/dev/null | tail -50"
-                limit = 50
-                timeout = 12
+                // fastlane 版本列表可能比较长，使用更高效的方法
+                // 先尝试获取最新版本，如果失败则直接使用预置版本
+                command = "asdf list all \(languageId) 2>/dev/null | tail -30"
+                limit = 30
+                timeout = 8  // 减少超时时间，如果超时直接使用预置版本
             } else {
                 command = "asdf list all \(languageId) 2>/dev/null | tail -50"
                 limit = 50
@@ -2179,6 +2357,10 @@ class LanguageManagementViewModel: ObservableObject {
                 } else if languageId == "npm" {
                     // npm 通常随 Node.js 一起安装，可能没有独立的版本列表
                     print("📋 [DEBUG] npm 版本列表加载失败，npm 通常随 Node.js 一起安装")
+                    loadedVersions = []
+                } else if languageId == "fastlane" {
+                    // fastlane 版本列表加载可能很慢，直接使用预置版本，不尝试再次加载
+                    print("📋 [DEBUG] fastlane 版本列表加载失败，仅使用预置版本")
                     loadedVersions = []
                 } else {
                     let fallbackCommand = "asdf list all \(languageId) 2>/dev/null | tail -20"
@@ -2660,7 +2842,7 @@ class LanguageManagementViewModel: ObservableObject {
                     if !verified {
                         let brewCheck = Shell.run("brew list --formula fastlane 2>/dev/null | head -1")
                         if brewCheck.code == 0 {
-                            let versionCheck = Shell.run("fastlane --version 2>/dev/null | head -1")
+                            let versionCheck = Shell.run("fastlane --version 2>/dev/null | tail -1")
                             if versionCheck.code == 0 && !versionCheck.out.isEmpty {
                                 log += "✅ Homebrew Fastlane 验证成功: \(versionCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
                                 verified = true
@@ -2672,7 +2854,7 @@ class LanguageManagementViewModel: ObservableObject {
                     if !verified {
                         let gemCheck = Shell.run("gem list fastlane --local 2>/dev/null | grep fastlane")
                         if gemCheck.code == 0 && !gemCheck.out.isEmpty {
-                            let versionCheck = Shell.run("fastlane --version 2>/dev/null | head -1")
+                            let versionCheck = Shell.run("fastlane --version 2>/dev/null | tail -1")
                             if versionCheck.code == 0 && !versionCheck.out.isEmpty {
                                 log += "✅ Gem Fastlane 验证成功: \(versionCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
                                 verified = true
@@ -3586,7 +3768,218 @@ fi
     }
     
     func showVersionDetails(language: ProgrammingLanguage, version: String) {
-        // TODO: 显示版本详细信息
+        // 这个方法保留用于兼容性，但实际显示逻辑在LanguageDetailView中处理
+    }
+}
+
+// 版本详情视图
+struct VersionDetailView: View {
+    let detailInfo: LanguageDetailView.VersionDetailInfo
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // 标题部分
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(detailInfo.language.color.opacity(0.2))
+                                    .frame(width: 48, height: 48)
+                                
+                                Image(systemName: detailInfo.language.icon)
+                                    .font(.system(size: 24))
+                                    .foregroundColor(detailInfo.language.color)
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(detailInfo.language.displayName)
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                Text("\(tr("Version:")) \(detailInfo.version)")
+                                    .font(.title3)
+                                    .fontWeight(.medium)
+                            }
+                            
+                            Spacer()
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
+                    
+                    // 基本信息
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(tr("Basic Information"))
+                            .font(.headline)
+                            .padding(.bottom, 4)
+                        
+                        DetailRow(label: tr("Version Source"), value: detailInfo.versionSource.displayName)
+                        DetailRow(label: tr("Current Version"), value: detailInfo.version)
+                        
+                        if let asdfGlobal = detailInfo.asdfGlobalVersion {
+                            DetailRow(label: tr("asdf Global Version"), value: asdfGlobal)
+                            if asdfGlobal != detailInfo.version {
+                                HStack {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundColor(.orange)
+                                        .font(.caption)
+                                    Text(tr("asdf global configuration differs from current version"))
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                }
+                                .padding(.top, 4)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
+                    
+                    // 路径信息
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(tr("Path Information"))
+                            .font(.headline)
+                            .padding(.bottom, 4)
+                        
+                        if let versionPath = detailInfo.versionPath {
+                            DetailRow(label: tr("Version Path"), value: versionPath, isPath: true)
+                        } else {
+                            DetailRow(label: tr("Version Path"), value: tr("Not available"))
+                        }
+                        
+                        if let execPath = detailInfo.executablePath {
+                            DetailRow(label: tr("Executable Path"), value: execPath, isPath: true)
+                        } else {
+                            DetailRow(label: tr("Executable Path"), value: tr("Not found in PATH"))
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
+                    
+                    // 已安装版本列表
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(tr("Installed Versions"))
+                            .font(.headline)
+                            .padding(.bottom, 4)
+                        
+                        if detailInfo.allInstalledVersions.isEmpty {
+                            Text(tr("No versions installed"))
+                                .foregroundColor(.secondary)
+                                .font(.subheadline)
+                        } else {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("\(tr("Total:")) \(detailInfo.allInstalledVersions.count) \(tr("versions"))")
+                                    .font(.subheadline)
+                                
+                                if !detailInfo.asdfInstalledVersions.isEmpty {
+                                    Text("\(tr("asdf versions:")) \(detailInfo.asdfInstalledVersions.count)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                // 显示版本列表
+                                LazyVStack(alignment: .leading, spacing: 6) {
+                                    ForEach(detailInfo.allInstalledVersions, id: \.self) { version in
+                                        HStack {
+                                            Text(version)
+                                                .font(.system(.body, design: .monospaced))
+                                            if version == detailInfo.version {
+                                                Text(tr("(Current)"))
+                                                    .font(.caption)
+                                                    .foregroundColor(.green)
+                                                    .fontWeight(.medium)
+                                            }
+                                            if detailInfo.asdfInstalledVersions.contains(version) {
+                                                Spacer()
+                                                Text("asdf")
+                                                    .font(.caption2)
+                                                    .foregroundColor(.blue)
+                                                    .padding(.horizontal, 6)
+                                                    .padding(.vertical, 2)
+                                                    .background(Color.blue.opacity(0.1))
+                                                    .cornerRadius(4)
+                                            }
+                                        }
+                                        .padding(.vertical, 4)
+                                        .padding(.horizontal, 8)
+                                        .background(Color.secondary.opacity(0.05))
+                                        .cornerRadius(6)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(Color(NSColor.windowBackgroundColor))
+            .frame(minWidth: 600, minHeight: 500)
+            .navigationTitle(tr("Version Details"))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(tr("Close")) {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .frame(width: 650, height: 600)
+        .background(Color(NSColor.windowBackgroundColor))
+    }
+}
+
+// 详情行组件
+struct DetailRow: View {
+    let label: String
+    let value: String
+    var isPath: Bool = false
+    @State private var copied: Bool = false
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .frame(width: 140, alignment: .leading)
+            
+            if isPath {
+                HStack(spacing: 8) {
+                    Text(value)
+                        .font(.system(.subheadline, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    Button(action: {
+                        let pasteboard = NSPasteboard.general
+                        pasteboard.clearContents()
+                        pasteboard.setString(value, forType: .string)
+                        copied = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            copied = false
+                        }
+                    }) {
+                        Image(systemName: copied ? "checkmark.circle.fill" : "doc.on.doc")
+                            .foregroundColor(copied ? .green : .blue)
+                            .font(.caption)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .help(tr("Copy to Clipboard"))
+                }
+            } else {
+                Text(value)
+                    .font(.subheadline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

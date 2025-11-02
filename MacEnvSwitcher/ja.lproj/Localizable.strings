@@ -142,4 +142,22 @@
 "System" = "システム";
 "Other" = "その他";
 "Not Installed" = "未インストール";
+"Version Details" = "バージョン詳細";
+"Basic Information" = "基本情報";
+"Version Source" = "バージョンソース";
+"Current Version" = "現在のバージョン";
+"asdf Global Version" = "asdf グローバルバージョン";
+"asdf global configuration differs from current version" = "asdf グローバル設定が現在のバージョンと異なります";
+"Path Information" = "パス情報";
+"Version Path" = "バージョンパス";
+"Executable Path" = "実行ファイルパス";
+"Not available" = "利用不可";
+"Not found in PATH" = "PATH に見つかりません";
+"Total:" = "合計：";
+"versions" = "バージョン";
+"asdf versions:" = "asdf バージョン：";
+"(Current)" = "（現在）";
+"Close" = "閉じる";
+"Copy to Clipboard" = "クリップボードにコピー";
+"Version:" = "バージョン：";
 

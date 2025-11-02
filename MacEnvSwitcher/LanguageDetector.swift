@@ -29,7 +29,7 @@ class LanguageDetector {
         "scala": "scala -version 2>&1",
         "kotlin": "kotlin -version 2>&1",
         "gradle": "gradle --version 2>&1 | head -1",
-        "fastlane": "fastlane --version 2>/dev/null | head -1"
+        "fastlane": "fastlane --version 2>/dev/null | tail -1"
     ]
     
     /// 特殊路径检测配置（语言 ID -> 检测路径列表）
@@ -157,10 +157,27 @@ class LanguageDetector {
                     }
                 }
             }
-            // 检查是否来自 Homebrew
+            // 检查是否来自 Homebrew（包括 fastlane）
             else if path.contains("/opt/homebrew/") || path.contains("/usr/local/Cellar/") {
                 versionSource = .homebrew
                 currentVersion = getVersionFromTool(languageId: languageId, toolName: toolName)
+                if languageId == "fastlane" {
+                    print("🔍 [DEBUG LanguageDetector] fastlane 通过 Homebrew 路径检测: \(path), version=\(currentVersion ?? "nil")")
+                }
+            }
+            // 检查 fastlane 的特殊路径（如果上面的 Homebrew 检查没有匹配到）
+            else if languageId == "fastlane" {
+                print("🔍 [DEBUG LanguageDetector] 检测到 fastlane 特殊路径: \(path)")
+                // fastlane 可能通过 Homebrew 或 gem 安装
+                if path.contains("/opt/homebrew/") || path.contains("/usr/local/") || path.contains("/opt/homebrew/opt/") {
+                    versionSource = .homebrew
+                } else if path.contains("/.gem/") || path.contains("/usr/local/lib/ruby") || path.contains("/System/Library/Frameworks/Ruby.framework") {
+                    versionSource = .other  // gem 安装视为 other
+                } else {
+                    versionSource = .other
+                }
+                currentVersion = getVersionFromTool(languageId: languageId, toolName: toolName)
+                print("🔍 [DEBUG LanguageDetector] fastlane 特殊路径检测结果: version=\(currentVersion ?? "nil"), source=\(versionSource)")
             }
             // 检查是否系统 Java（macOS 特有）
             else if languageId == "java" && (path.contains("/Library/Java/JavaVirtualMachines/") || path.contains("/usr/libexec/java_home")) {
@@ -199,10 +216,34 @@ class LanguageDetector {
                             }
                         }
                     }
+                } else {
+                    // 对于 fastlane，即使 which 找不到，也尝试直接执行 fastlane --version
+                    if languageId == "fastlane" {
+                        print("🔍 [DEBUG LanguageDetector] fastlane which 未找到，尝试直接执行 fastlane --version")
+                        let versionResult = Shell.run("fastlane --version 2>/dev/null | tail -1")
+                        if versionResult.code == 0, !versionResult.out.isEmpty {
+                            currentVersion = getVersionFromTool(languageId: languageId, toolName: toolName)
+                            print("🔍 [DEBUG LanguageDetector] fastlane getVersionFromTool 返回: \(currentVersion ?? "nil")")
+                            if currentVersion != nil {
+                                // 尝试判断来源
+                                let brewCheck = Shell.run("brew list --formula fastlane 2>/dev/null | head -1")
+                                if brewCheck.code == 0 {
+                                    versionSource = .homebrew
+                                    print("🔍 [DEBUG LanguageDetector] fastlane 判断为 Homebrew 安装")
+                                } else {
+                                    versionSource = .other  // 可能是 gem 安装
+                                    print("🔍 [DEBUG LanguageDetector] fastlane 判断为其他来源安装")
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
         
+        if languageId == "fastlane" {
+            print("🔍 [DEBUG LanguageDetector] fastlane 最终检测结果: version=\(currentVersion ?? "nil"), source=\(versionSource), path=\(versionPath ?? "nil")")
+        }
         return DetectionResult(version: currentVersion, source: versionSource, path: versionPath)
     }
     
@@ -211,6 +252,35 @@ class LanguageDetector {
     /// - Returns: 版本字符串，如果无法检测返回 nil
     static func detectSystemInstalledVersion(languageId: String) -> String? {
         let toolName = getToolName(for: languageId)
+        
+        // 对于 fastlane，优先使用特殊检测逻辑
+        if languageId == "fastlane" {
+            // 方法1: 检查 Homebrew 路径
+            if let version = detectFromSpecialPaths(languageId: languageId) {
+                return version
+            }
+            
+            // 方法2: 检查 brew list
+            let brewCheck = Shell.run("brew list fastlane 2>/dev/null")
+            if brewCheck.code == 0 || brewCheck.out.contains("fastlane") {
+                // 直接执行 fastlane --version 获取版本
+                return getVersionFromTool(languageId: languageId, toolName: toolName)
+            }
+            
+            // 方法3: 检查 which 命令，并验证路径
+            let whichResult = Shell.run("which \(toolName) 2>/dev/null")
+            if whichResult.code == 0, !whichResult.out.isEmpty {
+                let executablePath = whichResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                // 如果是 asdf shim，不算系统安装
+                if executablePath.contains("/.asdf/shims/") || executablePath.contains("/.asdf/installs/") {
+                    return nil
+                }
+                // 如果是 Homebrew 路径，认为是系统安装
+                if executablePath.contains("/opt/homebrew/") || executablePath.contains("/usr/local/bin/") || executablePath.contains("/usr/local/opt/") {
+                    return getVersionFromTool(languageId: languageId, toolName: toolName)
+                }
+            }
+        }
         
         // 优先检查特殊路径（如 Homebrew 安装但不在 PATH 中的情况）
         if let version = detectFromSpecialPaths(languageId: languageId) {
@@ -243,14 +313,31 @@ class LanguageDetector {
         }
         
         for checkPath in paths {
-            let checkResult = Shell.run("test -f '\(checkPath)' && '\(checkPath)' --version 2>/dev/null | head -1")
+            // 对于 fastlane，使用 tail -1 而不是 head -1，因为版本号在最后一行
+            let versionCommand = languageId == "fastlane" 
+                ? "test -f '\(checkPath)' && '\(checkPath)' --version 2>/dev/null | tail -1"
+                : "test -f '\(checkPath)' && '\(checkPath)' --version 2>/dev/null | head -1"
+            let checkResult = Shell.run(versionCommand)
             if checkResult.code == 0, !checkResult.out.isEmpty {
                 // 提取版本号
                 let output = checkResult.out
-                if let match = output.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
-                    return String(output[match])
-                } else if let match = output.range(of: #"\d+\.\d+"#, options: .regularExpression) {
-                    return String(output[match])
+                
+                // 对于 fastlane，特殊处理版本解析
+                if languageId == "fastlane" {
+                    // fastlane 输出格式: fastlane 2.228.0 或 fastlane 2.228.0 is available
+                    if let match = output.range(of: #"fastlane (\d+\.\d+\.\d+)"#, options: .regularExpression) {
+                        let fullMatch = String(output[match])
+                        return fullMatch.replacingOccurrences(of: "fastlane ", with: "")
+                    } else if let match = output.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
+                        return String(output[match])
+                    }
+                } else {
+                    // 其他语言的通用解析
+                    if let match = output.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
+                        return String(output[match])
+                    } else if let match = output.range(of: #"\d+\.\d+"#, options: .regularExpression) {
+                        return String(output[match])
+                    }
                 }
             }
         }
