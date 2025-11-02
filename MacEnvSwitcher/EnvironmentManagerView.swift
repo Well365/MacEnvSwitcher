@@ -69,7 +69,6 @@ struct EnvironmentManagerView: View {
                     vm.addEnvironment(profile)
                 }
             )
-            .frame(minWidth: 700, minHeight: 500)
         }
         .sheet(isPresented: $showEditEnvironment) {
             if let profile = editingProfile {
@@ -81,7 +80,6 @@ struct EnvironmentManagerView: View {
                         vm.updateEnvironment(updatedProfile)
                     }
                 )
-                .frame(minWidth: 700, minHeight: 500)
             }
         }
         .alert(tr("Delete Environment"), isPresented: $showDeleteConfirmation) {

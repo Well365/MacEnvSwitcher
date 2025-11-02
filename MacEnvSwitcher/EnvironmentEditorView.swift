@@ -26,89 +26,224 @@ struct EnvironmentEditorView: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                // Basic info section
-                Section(tr("Basic Information")) {
-                    TextField(tr("Environment Name"), text: $editedProfile.name)
-                    if #available(macOS 13.0, *) {
-                        TextField(tr("Description (Optional)"), text: $editedProfile.description, axis: .vertical)
-                            .lineLimit(3)
-                    } else {
-                        TextField(tr("Description (Optional)"), text: $editedProfile.description)
-                    }
-                }
-                
-                // Language versions section
-                Section(tr("Language Versions")) {
-                    ForEach(editedProfile.versions.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
-                        HStack {
-                            Text(key).bold()
-                            Spacer()
-                            Text(value).foregroundColor(.secondary)
-                            Button(action: {
-                                editedProfile.versions.removeValue(forKey: key)
-                            }) {
-                                Image(systemName: "minus.circle.fill").foregroundColor(.red)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Basic info section
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(tr("Basic Information"))
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(tr("Environment Name"))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            TextField(tr("Enter environment name"), text: $editedProfile.name)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.body)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(tr("Description (Optional)"))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            if #available(macOS 13.0, *) {
+                                TextField(tr("Enter description"), text: $editedProfile.description, axis: .vertical)
+                                    .textFieldStyle(.roundedBorder)
+                                    .lineLimit(3...6)
+                            } else {
+                                TextField(tr("Enter description"), text: $editedProfile.description)
+                                    .textFieldStyle(.roundedBorder)
                             }
                         }
                     }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
                     
-                    Button(tr("Add Language Version")) {
-                        selectedLanguage = ""
-                        selectedVersion = ""
-                        showVersionEditor = true
-                    }
-                }
-                
-                // Virtual environments section
-                Section(tr("Virtual Environments")) {
-                    ForEach(editedProfile.virtualEnvs.sorted(by: { $0.key < $1.key }), id: \.key) { key, venv in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(key).bold()
-                                Spacer()
-                                Button(action: {
-                                    editedProfile.virtualEnvs.removeValue(forKey: key)
-                                }) {
-                                    Image(systemName: "minus.circle.fill").foregroundColor(.red)
-                                }
-                            }
-                            Text("\(venv.type.displayName): \(venv.name)")
+                    // Language versions section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text(tr("Language Versions"))
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
+                        
+                        if editedProfile.versions.isEmpty {
+                            Text(tr("No language versions added"))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                        }
-                    }
-                    
-                    Button(tr("Add Virtual Environment")) {
-                        selectedLanguage = ""
-                        selectedVirtualEnv = VirtualEnvironment(type: .pythonVenv, name: "")
-                        showVirtualEnvEditor = true
-                    }
-                }
-                
-                // Environment variables section
-                Section(tr("Environment Variables")) {
-                    ForEach(editedProfile.environmentVars.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
-                        HStack {
-                            Text(key).bold()
-                            Spacer()
-                            Text(value).foregroundColor(.secondary)
-                            Button(action: {
-                                editedProfile.environmentVars.removeValue(forKey: key)
-                            }) {
-                                Image(systemName: "minus.circle.fill").foregroundColor(.red)
+                                .padding(.vertical, 8)
+                        } else {
+                            VStack(spacing: 8) {
+                                ForEach(editedProfile.versions.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
+                                    HStack {
+                                        Text(key)
+                                            .font(.body)
+                                            .fontWeight(.medium)
+                                        Spacer()
+                                        Text(value)
+                                            .font(.system(.body, design: .monospaced))
+                                            .foregroundColor(.secondary)
+                                        Button(action: {
+                                            editedProfile.versions.removeValue(forKey: key)
+                                        }) {
+                                            Image(systemName: "minus.circle.fill")
+                                                .foregroundColor(.red)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(Color(NSColor.textBackgroundColor))
+                                    .cornerRadius(8)
+                                }
                             }
                         }
+                        
+                        Button(action: {
+                            selectedLanguage = ""
+                            selectedVersion = ""
+                            showVersionEditor = true
+                        }) {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                Text(tr("Add Language Version"))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                        }
+                        .buttonStyle(.bordered)
                     }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
                     
-                    Button(tr("Add Environment Variable")) {
-                        selectedEnvKey = ""
-                        selectedEnvValue = ""
-                        showEnvVarEditor = true
+                    // Virtual environments section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text(tr("Virtual Environments"))
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
+                        
+                        if editedProfile.virtualEnvs.isEmpty {
+                            Text(tr("No virtual environments added"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.vertical, 8)
+                        } else {
+                            VStack(spacing: 8) {
+                                ForEach(editedProfile.virtualEnvs.sorted(by: { $0.key < $1.key }), id: \.key) { key, venv in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack {
+                                            Text(key)
+                                                .font(.body)
+                                                .fontWeight(.medium)
+                                            Spacer()
+                                            Button(action: {
+                                                editedProfile.virtualEnvs.removeValue(forKey: key)
+                                            }) {
+                                                Image(systemName: "minus.circle.fill")
+                                                    .foregroundColor(.red)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                        Text("\(venv.type.displayName): \(venv.name)")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(Color(NSColor.textBackgroundColor))
+                                    .cornerRadius(8)
+                                }
+                            }
+                        }
+                        
+                        Button(action: {
+                            selectedLanguage = ""
+                            selectedVirtualEnv = VirtualEnvironment(type: .pythonVenv, name: "")
+                            showVirtualEnvEditor = true
+                        }) {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                Text(tr("Add Virtual Environment"))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                        }
+                        .buttonStyle(.bordered)
                     }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
+                    
+                    // Environment variables section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text(tr("Environment Variables"))
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
+                        
+                        if editedProfile.environmentVars.isEmpty {
+                            Text(tr("No environment variables added"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.vertical, 8)
+                        } else {
+                            VStack(spacing: 8) {
+                                ForEach(editedProfile.environmentVars.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
+                                    HStack {
+                                        Text(key)
+                                            .font(.body)
+                                            .fontWeight(.medium)
+                                        Spacer()
+                                        Text(value)
+                                            .font(.system(.body, design: .monospaced))
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                        Button(action: {
+                                            editedProfile.environmentVars.removeValue(forKey: key)
+                                        }) {
+                                            Image(systemName: "minus.circle.fill")
+                                                .foregroundColor(.red)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(Color(NSColor.textBackgroundColor))
+                                    .cornerRadius(8)
+                                }
+                            }
+                        }
+                        
+                        Button(action: {
+                            selectedEnvKey = ""
+                            selectedEnvValue = ""
+                            showEnvVarEditor = true
+                        }) {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                Text(tr("Add Environment Variable"))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
                 }
+                .padding(24)
             }
-            .frame(minWidth: 700)
+            .frame(minWidth: 800, idealWidth: 850, minHeight: 600, idealHeight: 700)
             .navigationTitle(isNew ? tr("New Environment") : tr("Edit Environment"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -124,6 +259,7 @@ struct EnvironmentEditorView: View {
                         onSave(editedProfile)
                         isPresented = false
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(editedProfile.name.isEmpty)
                 }
             }

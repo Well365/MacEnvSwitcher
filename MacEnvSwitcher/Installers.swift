@@ -937,10 +937,10 @@ final class Installers {
         let useSetCommand = asdfVersionResult.out.contains("0.18") || asdfVersionResult.out.contains("0.17") || asdfVersionResult.out.contains("0.16")
         
         let systemCommands = [
-            useSetCommand ? "asdf set nodejs system" : "asdf global nodejs system",
-            useSetCommand ? "asdf set python system" : "asdf global python system", 
-            useSetCommand ? "asdf set ruby system" : "asdf global ruby system",
-            useSetCommand ? "asdf set java system" : "asdf global java system"
+            useSetCommand ? "asdf set -u nodejs system" : "asdf global nodejs system",
+            useSetCommand ? "asdf set -u python system" : "asdf global python system", 
+            useSetCommand ? "asdf set -u ruby system" : "asdf global ruby system",
+            useSetCommand ? "asdf set -u java system" : "asdf global java system"
         ]
         
         for command in systemCommands {
@@ -1043,7 +1043,7 @@ final class Installers {
             let asdfVersionResult = Shell.run("asdf version")
             let useSetCommand = asdfVersionResult.out.contains("0.18") || asdfVersionResult.out.contains("0.17") || asdfVersionResult.out.contains("0.16")
             
-            let globalCommand = useSetCommand ? "asdf set \(plugin) \(version)" : "asdf global \(plugin) \(version)"
+            let globalCommand = useSetCommand ? "asdf set -u \(plugin) \(version)" : "asdf global \(plugin) \(version)"
             let globalResult = Shell.run(globalCommand)
             logs += "Set global \(plugin) \(version): \(globalResult.code == 0 ? "✅" : "❌")\n"
             if globalResult.code != 0 {
@@ -1151,7 +1151,7 @@ final class Installers {
         
         // Add asdf commands
         for (plugin, version) in profile.versions {
-            let asdfCommand = useSetCommand ? "asdf set \(plugin) '\(version)'" : "asdf global \(plugin) '\(version)'"
+            let asdfCommand = useSetCommand ? "asdf set -u \(plugin) '\(version)'" : "asdf global \(plugin) '\(version)'"
             envCommands.append("\(asdfCommand) 2>/dev/null || echo 'Failed to set \(plugin) \(version)'")
         }
         
