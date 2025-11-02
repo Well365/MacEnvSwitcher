@@ -234,3 +234,16 @@
 "Close" = "关闭";
 "Copy to Clipboard" = "复制到剪贴板";
 "Version:" = "版本：";
+"Variable Name" = "变量名";
+"Enter value" = "输入值";
+"No environment variables added" = "暂无环境变量";
+"Search languages..." = "搜索语言...";
+"No matching languages" = "无匹配的语言";
+"Add Custom Language" = "添加自定义语言";
+"Enter Custom Language" = "输入自定义语言";
+"Enter the name of the language or tool as it appears in asdf (e.g., nodejs, python, ruby)" = "输入语言或工具在 asdf 中的名称（例如：nodejs、python、ruby）";
+"Language Name" = "语言名称";
+"Custom Language" = "自定义语言";
+"Confirm" = "确认";
+
+

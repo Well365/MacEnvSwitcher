@@ -214,28 +214,24 @@ struct EnvironmentEditorView: View {
                                 .padding(.vertical, 8)
                         } else {
                             VStack(spacing: 8) {
-                                ForEach(editedProfile.environmentVars.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
-                                    HStack {
-                                        Text(key)
-                                            .font(.body)
-                                            .fontWeight(.medium)
-                                        Spacer()
-                                        Text(value)
-                                            .font(.system(.body, design: .monospaced))
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(1)
-                                        Button(action: {
+                                ForEach(Array(editedProfile.environmentVars.keys.sorted()), id: \.self) { key in
+                                    EnvironmentVariableRow(
+                                        key: key,
+                                        value: Binding(
+                                            get: { editedProfile.environmentVars[key] ?? "" },
+                                            set: { editedProfile.environmentVars[key] = $0 }
+                                        ),
+                                        onKeyChange: { oldKey, newKey in
+                                            if oldKey != newKey && !newKey.isEmpty {
+                                                let oldValue = editedProfile.environmentVars[oldKey] ?? ""
+                                                editedProfile.environmentVars.removeValue(forKey: oldKey)
+                                                editedProfile.environmentVars[newKey] = oldValue
+                                            }
+                                        },
+                                        onDelete: {
                                             editedProfile.environmentVars.removeValue(forKey: key)
-                                        }) {
-                                            Image(systemName: "minus.circle.fill")
-                                                .foregroundColor(.red)
                                         }
-                                        .buttonStyle(.plain)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 10)
-                                    .background(Color(NSColor.textBackgroundColor))
-                                    .cornerRadius(8)
+                                    )
                                 }
                             }
                         }
@@ -326,8 +322,29 @@ struct VersionEditorSheet: View {
     
     @State private var isLoadingVersions: Bool = false
     @State private var availableVersions: [String] = []
+    @State private var searchText: String = ""
+    @State private var showCustomInput: Bool = false
+    @State private var customLanguage: String = ""
     
-    private let availableLanguages = ["nodejs", "python", "ruby", "java", "golang", "rust", "gradle", "maven", "yarn", "pnpm"]
+    // 扩展的语言列表 - 包含更多常用语言和工具
+    private let availableLanguages = [
+        "nodejs", "python", "ruby", "java", "golang", "rust", 
+        "gradle", "maven", "yarn", "pnpm", "npm",
+        "php", "elixir", "kotlin", "scala", "dart", "lua", "r",
+        "terraform", "vault", "consul", "nomad",
+        "erlang", "haskell", "ocaml", "swift",
+        "deno", "bun", "crystal", "nim", "zig"
+    ]
+    
+    private var filteredLanguages: [String] {
+        if searchText.isEmpty {
+            return availableLanguages
+        }
+        return availableLanguages.filter { lang in
+            lang.lowercased().contains(searchText.lowercased()) ||
+            lang.capitalized.lowercased().contains(searchText.lowercased())
+        }
+    }
     
     // 预定义的常用版本
     private let predefinedVersions: [String: [String]] = [
@@ -363,43 +380,113 @@ struct VersionEditorSheet: View {
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                             
-                            Menu {
-                                ForEach(availableLanguages, id: \.self) { lang in
+                            // 搜索框
+                            HStack(spacing: 8) {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
+                                
+                                TextField(tr("Search languages..."), text: $searchText)
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.system(.body))
+                                
+                                if !searchText.isEmpty {
                                     Button(action: {
-                                        language = lang
+                                        searchText = ""
+                                    }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.secondary)
+                                            .font(.caption)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            
+                            // 语言选择 - 使用列表而不是菜单
+                            if filteredLanguages.isEmpty && !searchText.isEmpty {
+                                VStack(spacing: 12) {
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.largeTitle)
+                                        .foregroundColor(.secondary.opacity(0.5))
+                                    Text(tr("No matching languages"))
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                    
+                                    // 自定义输入选项
+                                    Button(action: {
+                                        showCustomInput = true
                                     }) {
                                         HStack {
-                                            Text(getLanguageIcon(lang))
-                                            Text(lang.capitalized)
+                                            Image(systemName: "plus.circle.fill")
+                                            Text(tr("Add Custom Language"))
                                         }
+                                        .font(.subheadline)
                                     }
+                                    .buttonStyle(.bordered)
                                 }
-                            } label: {
-                                HStack {
-                                    if language.isEmpty {
-                                        Text(tr("-- Select a language --"))
-                                            .foregroundColor(.secondary)
-                                    } else {
-                                        HStack(spacing: 6) {
-                                            Text(getLanguageIcon(language))
-                                            Text(language.capitalized)
-                                        }
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.down")
-                                        .foregroundColor(.secondary)
-                                        .font(.caption)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
                                 .frame(maxWidth: .infinity)
+                                .padding(.vertical, 30)
+                            } else {
+                                // 语言列表
+                                ScrollView {
+                                    LazyVStack(spacing: 4) {
+                                        ForEach(filteredLanguages, id: \.self) { lang in
+                                            Button(action: {
+                                                language = lang
+                                                searchText = ""
+                                            }) {
+                                                HStack(spacing: 12) {
+                                                    Text(getLanguageIcon(lang))
+                                                        .font(.title3)
+                                                    Text(lang.capitalized)
+                                                        .font(.body)
+                                                        .foregroundColor(.primary)
+                                                    Spacer()
+                                                    if language == lang {
+                                                        Image(systemName: "checkmark")
+                                                            .foregroundColor(.blue)
+                                                    }
+                                                }
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 10)
+                                                .background(
+                                                    language == lang 
+                                                        ? Color.blue.opacity(0.1) 
+                                                        : Color(NSColor.controlBackgroundColor)
+                                                )
+                                                .cornerRadius(8)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                        
+                                        // 自定义输入选项
+                                        Divider()
+                                            .padding(.vertical, 8)
+                                        
+                                        Button(action: {
+                                            showCustomInput = true
+                                        }) {
+                                            HStack(spacing: 12) {
+                                                Image(systemName: "plus.circle.fill")
+                                                    .foregroundColor(.blue)
+                                                Text(tr("Add Custom Language"))
+                                                    .font(.body)
+                                                    .foregroundColor(.blue)
+                                                Spacer()
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 10)
+                                            .background(Color.blue.opacity(0.1))
+                                            .cornerRadius(8)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .frame(maxHeight: 300)
+                                .padding(4)
                                 .background(Color(NSColor.controlBackgroundColor))
                                 .cornerRadius(10)
                             }
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(language.isEmpty ? Color.clear : Color.blue.opacity(0.3), lineWidth: 1)
-                            )
                         }
                         
                         if !language.isEmpty {
@@ -577,44 +664,73 @@ struct VersionEditorSheet: View {
             }
         }
         .frame(minWidth: 600, idealWidth: 700, minHeight: 500, idealHeight: 600)
+        .sheet(isPresented: $showCustomInput) {
+            CustomLanguageInputSheet(
+                isPresented: $showCustomInput,
+                language: $customLanguage,
+                onConfirm: { lang in
+                    if !lang.isEmpty {
+                        language = lang.lowercased()
+                        searchText = ""
+                        showCustomInput = false
+                    }
+                }
+            )
+        }
     }
     
     private func getLanguageIcon(_ language: String) -> String {
         switch language.lowercased() {
-        case "javascript": return "🟢 JavaScript"
-        case "typescript": return "🟢 TypeScript"
-        case "react": return "🟢 React"
-        case "nextjs": return "🟢 Next.js"
-        case "vue": return "🟢 Vue"
-        case "angular": return "🟢 Angular"
-        case "svelte": return "🟢 Svelte"
-        case "solid": return "🟢 Solid"
-        case "tailwind": return "🟢 Tailwind"
-        case "bootstrap": return "🟢 Bootstrap"
-        case "material-ui": return "🟢 Material-UI"
-        case "chakra-ui": return "🟢 Chakra-UI"
-        case "emotion": return "🟢 Emotion"
-        case "styled-components": return "🟢 Styled Components"
-        case "styled-jsx": return "🟢 Styled JSX"
-        case "styled-system": return "🟢 Styled System"
-        case "styled-icons": return "🟢 Styled Icons"
-        case "styled-media-query": return "🟢 Styled Media Query"
-        case "styled-media-query": return "🟢 Styled Media Query"
-        case "java": return "☕ Java"
-        case "kotlin": return "🟢 Kotlin"
-        case "scala": return "🟢 Scala"
-        case "php": return "🟢 PHP"
-        case "nodejs": return "🟢 Node.js"
-        case "python": return "🐍 Python"
-        case "ruby": return "💎 Ruby"
-        case "java": return "☕ Java"
-        case "golang": return "🐹 Golang"
-        case "rust": return "🦀 Rust"
-        case "gradle": return "📦 Gradle"
-        case "maven": return "📦 Maven"
-        case "yarn": return "🧶 Yarn"
-        case "pnpm": return "📦 Pnpm"
-        default: return "📝 Other"
+        case "javascript": return "🟢"
+        case "typescript": return "🟢"
+        case "react": return "🟢"
+        case "nextjs": return "🟢"
+        case "vue": return "🟢"
+        case "angular": return "🟢"
+        case "svelte": return "🟢"
+        case "solid": return "🟢"
+        case "tailwind": return "🟢"
+        case "bootstrap": return "🟢"
+        case "material-ui": return "🟢"
+        case "chakra-ui": return "🟢"
+        case "emotion": return "🟢"
+        case "styled-components": return "🟢"
+        case "styled-jsx": return "🟢"
+        case "styled-system": return "🟢"
+        case "styled-icons": return "🟢"
+        case "styled-media-query": return "🟢"
+        case "java": return "☕"
+        case "kotlin": return "🟢"
+        case "scala": return "🟢"
+        case "php": return "🐘"
+        case "nodejs": return "🟢"
+        case "python": return "🐍"
+        case "ruby": return "💎"
+        case "golang": return "🐹"
+        case "rust": return "🦀"
+        case "gradle": return "📦"
+        case "maven": return "📦"
+        case "yarn": return "🧶"
+        case "pnpm": return "📦"
+        case "npm": return "📦"
+        case "elixir": return "💧"
+        case "dart": return "🎯"
+        case "lua": return "🌙"
+        case "r": return "📊"
+        case "terraform": return "🏗️"
+        case "vault": return "🔐"
+        case "consul": return "🌐"
+        case "nomad": return "🚀"
+        case "erlang": return "⚡"
+        case "haskell": return "λ"
+        case "ocaml": return "🐫"
+        case "swift": return "🐦"
+        case "deno": return "🦕"
+        case "bun": return "🍞"
+        case "crystal": return "💎"
+        case "nim": return "🎯"
+        case "zig": return "⚡"
+        default: return "📝"
         }
     }
     
@@ -678,6 +794,110 @@ struct ExampleRow: View {
                 .foregroundColor(.secondary)
             
             Spacer()
+        }
+    }
+}
+
+// 自定义语言输入对话框
+struct CustomLanguageInputSheet: View {
+    @Binding var isPresented: Bool
+    @Binding var language: String
+    let onConfirm: (String) -> Void
+    
+    @State private var inputText: String = ""
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 16) {
+                    Image(systemName: "keyboard.fill")
+                        .font(.largeTitle)
+                        .foregroundColor(.blue)
+                    
+                    Text(tr("Enter Custom Language"))
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    
+                    Text(tr("Enter the name of the language or tool as it appears in asdf (e.g., nodejs, python, ruby)"))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(tr("Language Name"))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    TextField(tr("e.g., nodejs, python, ruby"), text: $inputText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .disableAutocorrection(true)
+                        .onSubmit {
+                            if !inputText.isEmpty {
+                                confirm()
+                            }
+                        }
+                }
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(tr("Examples:"))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("• nodejs - Node.js runtime")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("• python - Python interpreter")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("• ruby - Ruby interpreter")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("• terraform - Infrastructure tool")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.leading, 8)
+                }
+                .padding()
+                .background(Color(NSColor.textBackgroundColor))
+                .cornerRadius(8)
+                
+                Spacer()
+            }
+            .padding(24)
+            .frame(minWidth: 500, idealWidth: 600, minHeight: 400, idealHeight: 450)
+            .navigationTitle(tr("Custom Language"))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(tr("Cancel")) {
+                        isPresented = false
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button(tr("Confirm")) {
+                        confirm()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(inputText.isEmpty)
+                }
+            }
+        }
+        .frame(minWidth: 500, idealWidth: 600, minHeight: 400, idealHeight: 450)
+        .onAppear {
+            inputText = language
+        }
+    }
+    
+    private func confirm() {
+        if !inputText.isEmpty {
+            language = inputText.trimmingCharacters(in: .whitespaces)
+            onConfirm(language)
+            isPresented = false
         }
     }
 }
@@ -960,4 +1180,75 @@ struct EnvVarEditorSheet: View {
         isNew: true,
         onSave: { _ in }
     )
+}
+
+// 环境变量行组件 - 支持直接编辑
+struct EnvironmentVariableRow: View {
+    let key: String
+    @Binding var value: String
+    let onKeyChange: (String, String) -> Void
+    let onDelete: () -> Void
+    
+    @State private var editingKey: String
+    @State private var previousKey: String
+    
+    init(key: String, value: Binding<String>, onKeyChange: @escaping (String, String) -> Void, onDelete: @escaping () -> Void) {
+        self.key = key
+        self._value = value
+        self.onKeyChange = onKeyChange
+        self.onDelete = onDelete
+        self._editingKey = State(initialValue: key)
+        self._previousKey = State(initialValue: key)
+    }
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // 变量名 - 可编辑
+            VStack(alignment: .leading, spacing: 4) {
+                Text(tr("Variable Name"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextField(tr("e.g., JAVA_HOME"), text: $editingKey)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .disableAutocorrection(true)
+                    .onChange(of: editingKey) { newValue in
+                        if previousKey != newValue && !newValue.isEmpty {
+                            onKeyChange(previousKey, newValue)
+                            previousKey = newValue
+                        }
+                    }
+                    .onAppear {
+                        editingKey = key
+                        previousKey = key
+                    }
+            }
+            .frame(maxWidth: .infinity)
+            
+            // 变量值 - 可编辑
+            VStack(alignment: .leading, spacing: 4) {
+                Text(tr("Value"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextField(tr("Enter value"), text: $value)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+            }
+            .frame(maxWidth: .infinity)
+            
+            // 删除按钮
+            Button(action: onDelete) {
+                Image(systemName: "minus.circle.fill")
+                    .foregroundColor(.red)
+                    .font(.title3)
+            }
+            .buttonStyle(.plain)
+            .help(tr("Remove"))
+            .padding(.top, 20)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color(NSColor.textBackgroundColor))
+        .cornerRadius(8)
+    }
 }

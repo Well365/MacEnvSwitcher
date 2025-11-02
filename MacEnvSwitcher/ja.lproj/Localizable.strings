@@ -161,4 +161,15 @@
 "Close" = "閉じる";
 "Copy to Clipboard" = "クリップボードにコピー";
 "Version:" = "バージョン：";
+"Variable Name" = "変数名";
+"Enter value" = "値を入力";
+"No environment variables added" = "環境変数が追加されていません";
+"Search languages..." = "言語を検索...";
+"No matching languages" = "一致する言語がありません";
+"Add Custom Language" = "カスタム言語を追加";
+"Enter Custom Language" = "カスタム言語を入力";
+"Enter the name of the language or tool as it appears in asdf (e.g., nodejs, python, ruby)" = "asdf に表示される言語またはツールの名前を入力してください（例：nodejs、python、ruby）";
+"Language Name" = "言語名";
+"Custom Language" = "カスタム言語";
+"Confirm" = "確認";
 

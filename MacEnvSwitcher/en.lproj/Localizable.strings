@@ -206,3 +206,15 @@
 "Copy to Clipboard" = "Copy to Clipboard";
 "Version:" = "Version:";
 
+// Environment Variable Editing
+"Variable Name" = "Variable Name";
+"Enter value" = "Enter value";
+"No environment variables added" = "No environment variables added";
+"Search languages..." = "Search languages...";
+"No matching languages" = "No matching languages";
+"Add Custom Language" = "Add Custom Language";
+"Enter Custom Language" = "Enter Custom Language";
+"Enter the name of the language or tool as it appears in asdf (e.g., nodejs, python, ruby)" = "Enter the name of the language or tool as it appears in asdf (e.g., nodejs, python, ruby)";
+"Language Name" = "Language Name";
+"Custom Language" = "Custom Language";
+"Confirm" = "Confirm";
