@@ -920,7 +920,21 @@ struct ProfilesStore {
         if setResult.code == 0 {
             return (true, "✅ [\(tool)] 已切换到版本 \(version)\n")
         } else {
-            return (false, "❌ [\(tool)] 切换到版本 \(version) 失败: \(setResult.err)\n")
+            // 提供更详细的错误信息
+            var errorMsg = setResult.err.trimmingCharacters(in: .whitespacesAndNewlines)
+            if errorMsg.isEmpty {
+                errorMsg = setResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            if errorMsg.isEmpty {
+                // 检查版本是否真的存在
+                let verifyResult = Shell.run("asdf list \(tool) 2>/dev/null | grep -w '\(version)' || echo 'not-found'")
+                if verifyResult.out.contains("not-found") {
+                    errorMsg = "版本 \(version) 未安装。请先运行 'asdf install \(tool) \(version)'"
+                } else {
+                    errorMsg = "未知错误（退出码: \(setResult.code)）"
+                }
+            }
+            return (false, "❌ [\(tool)] 切换到版本 \(version) 失败: \(errorMsg)\n")
         }
     }
     

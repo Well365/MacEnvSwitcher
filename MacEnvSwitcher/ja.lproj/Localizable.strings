@@ -172,4 +172,9 @@
 "Language Name" = "言語名";
 "Custom Language" = "カスタム言語";
 "Confirm" = "確認";
+"Switching environment..." = "環境を切り替え中...";
+"Success" = "成功";
+"Warning" = "警告";
+"Environment switch completed with warnings. Some versions may not be set correctly. Please check the logs for details." = "環境の切り替えが完了しましたが、警告があります。一部のバージョンが正しく設定されていない可能性があります。詳細についてはログを確認してください。";
+
 

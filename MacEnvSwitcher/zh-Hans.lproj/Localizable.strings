@@ -245,5 +245,10 @@
 "Language Name" = "语言名称";
 "Custom Language" = "自定义语言";
 "Confirm" = "确认";
+"Switching environment..." = "正在切换环境...";
+"Success" = "成功";
+"Warning" = "警告";
+"Environment switch completed with warnings. Some versions may not be set correctly. Please check the logs for details." = "环境切换完成，但有警告。某些版本可能未正确设置。请查看日志了解详情。";
+
 
 

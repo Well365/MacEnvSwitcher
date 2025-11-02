@@ -1,105 +1,146 @@
 import SwiftUI
 
 struct EnvironmentManagerView: View {
-    @StateObject private var vm = BootstrapViewModel()
+    @StateObject private var vm = TaskID.BootstrapViewModel()
     @State private var showCreateEnvironment = false
     @State private var editingProfile: EnvironmentProfile? = nil
     @State private var selectedProfileForAction: EnvironmentProfile? = nil
     @State private var showDeleteConfirmation = false
     @State private var refreshID = UUID()
+    @State private var showSwitchAlert = false
+    @State private var switchAlertMessage = ""
+    @State private var switchAlertTitle = ""
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Toolbar
-            HStack {
-                Text(tr("Environment Manager"))
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                Spacer()
-                
-                Button(tr("New Environment")) {
-                    showCreateEnvironment = true
-                }
-                .buttonStyle(.borderedProminent)
-                
-                Button(action: {
-                    vm.reloadProfiles()
-                }) {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(.bordered)
-            }
-            .padding()
-            .background(Color(NSColor.controlBackgroundColor))
-            
-            Divider()
-            
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Header with current active environment
-                    currentEnvironmentHeader
+        ZStack {
+            VStack(alignment: .leading, spacing: 0) {
+                // Toolbar
+                HStack {
+                    Text(tr("Environment Manager"))
+                        .font(.title)
+                        .fontWeight(.bold)
                     
-                    Divider()
+                    Spacer()
                     
-                    // Quick actions
-                    quickActionsBar
+                    Button(tr("New Environment")) {
+                        showCreateEnvironment = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(vm.isSwitchingEnvironment)
                     
-                    Divider()
-                    
-                    // Environment list
-                    environmentsList
-                    
-                    Spacer(minLength: 20)
+                    Button(action: {
+                        vm.reloadProfiles()
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(vm.isSwitchingEnvironment)
                 }
                 .padding()
+                .background(Color(NSColor.controlBackgroundColor))
+                
+                Divider()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Header with current active environment
+                        currentEnvironmentHeader
+                        
+                        Divider()
+                        
+                        // Quick actions
+                        quickActionsBar
+                        
+                        Divider()
+                        
+                        // Environment list
+                        environmentsList
+                        
+                        Spacer(minLength: 20)
+                    }
+                    .padding()
+                }
             }
-        }
-        .id(refreshID)
-        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
-            refreshID = UUID()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .environmentSwitched)) { _ in
-            // 环境切换后刷新界面
-            vm.reloadProfiles()
-            refreshID = UUID()
-        }
-        .sheet(isPresented: $showCreateEnvironment) {
-            EnvironmentEditorView(
-                isPresented: $showCreateEnvironment,
-                profile: .constant(EnvironmentProfile(name: "", description: "", versions: [:])),
-                isNew: true,
-                onSave: { profile in
-                    vm.addEnvironment(profile)
+            .id(refreshID)
+            .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+                refreshID = UUID()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .environmentSwitched)) { _ in
+                // 环境切换后刷新界面
+                vm.reloadProfiles()
+                refreshID = UUID()
+            }
+            .sheet(isPresented: $showCreateEnvironment) {
+                EnvironmentEditorView(
+                    isPresented: $showCreateEnvironment,
+                    profile: .constant(EnvironmentProfile(name: "", description: "", versions: [:])),
+                    isNew: true,
+                    onSave: { profile in
+                        vm.addEnvironment(profile)
+                    }
+                )
+                .frame(minWidth: 900, idealWidth: 1000, minHeight: 700, idealHeight: 800)
+            }
+            .sheet(item: $editingProfile) { profile in
+                EnvironmentEditorView(
+                    isPresented: Binding(
+                        get: { editingProfile != nil },
+                        set: { if !$0 { editingProfile = nil } }
+                    ),
+                    profile: .constant(profile),
+                    isNew: false,
+                    onSave: { updatedProfile in
+                        vm.updateEnvironment(updatedProfile)
+                        editingProfile = nil
+                    }
+                )
+                .frame(minWidth: 900, idealWidth: 1000, minHeight: 700, idealHeight: 800)
+            }
+            .alert(tr("Delete Environment"), isPresented: $showDeleteConfirmation) {
+                Button(tr("Cancel"), role: .cancel) { }
+                Button(tr("Delete"), role: .destructive) {
+                    if let profile = selectedProfileForAction {
+                        vm.deleteEnvironment(profile.name)
+                    }
                 }
-            )
-            .frame(minWidth: 900, idealWidth: 1000, minHeight: 700, idealHeight: 800)
-        }
-        .sheet(item: $editingProfile) { profile in
-            EnvironmentEditorView(
-                isPresented: Binding(
-                    get: { editingProfile != nil },
-                    set: { if !$0 { editingProfile = nil } }
-                ),
-                profile: .constant(profile),
-                isNew: false,
-                onSave: { updatedProfile in
-                    vm.updateEnvironment(updatedProfile)
-                    editingProfile = nil
-                }
-            )
-            .frame(minWidth: 900, idealWidth: 1000, minHeight: 700, idealHeight: 800)
-        }
-        .alert(tr("Delete Environment"), isPresented: $showDeleteConfirmation) {
-            Button(tr("Cancel"), role: .cancel) { }
-            Button(tr("Delete"), role: .destructive) {
+            } message: {
                 if let profile = selectedProfileForAction {
-                    vm.deleteEnvironment(profile.name)
+                    Text(tr("Are you sure you want to delete environment '\\(profile.name)'? This action cannot be undone."))
                 }
             }
-        } message: {
-            if let profile = selectedProfileForAction {
-                Text(tr("Are you sure you want to delete environment '\(profile.name)'? This action cannot be undone."))
+            .alert(switchAlertTitle, isPresented: $showSwitchAlert) {
+                Button(tr("OK")) {
+                    showSwitchAlert = false
+                }
+            } message: {
+                Text(switchAlertMessage)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("EnvironmentSwitchSuccess"))) { notification in
+                if let message = notification.userInfo?["message"] as? String {
+                    switchAlertTitle = tr("Success")
+                    switchAlertMessage = message
+                    showSwitchAlert = true
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("EnvironmentSwitchFailure"))) { notification in
+                if let message = notification.userInfo?["message"] as? String {
+                    switchAlertTitle = tr("Warning")
+                    switchAlertMessage = message
+                    showSwitchAlert = true
+                }
+            }
+            
+            // Loading overlay
+            if vm.isSwitchingEnvironment {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text(tr("Switching environment..."))
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(NSColor.windowBackgroundColor).opacity(0.8))
             }
         }
     }
@@ -200,7 +241,8 @@ struct EnvironmentManagerView: View {
                             onDelete: {
                                 selectedProfileForAction = profile
                                 showDeleteConfirmation = true
-                            }
+                            },
+                            vm: vm
                         )
                     }
                 }
@@ -215,6 +257,7 @@ struct EnvironmentCard: View {
     let onSwitch: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
+    @ObservedObject var vm: TaskID.BootstrapViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -241,18 +284,21 @@ struct EnvironmentCard: View {
                             onSwitch()
                         }
                         .buttonStyle(.borderedProminent)
+                        .disabled(vm.isSwitchingEnvironment)
                     }
                     
                     Button(tr("Edit")) {
                         onEdit()
                     }
                     .buttonStyle(.bordered)
+                    .disabled(vm.isSwitchingEnvironment)
                     
                     Button(tr("Delete")) {
                         onDelete()
                     }
                     .buttonStyle(.bordered)
                     .foregroundColor(.red)
+                    .disabled(vm.isSwitchingEnvironment)
                 }
             }
             

@@ -218,3 +218,8 @@
 "Language Name" = "Language Name";
 "Custom Language" = "Custom Language";
 "Confirm" = "Confirm";
+"Switching environment..." = "Switching environment...";
+"Success" = "Success";
+"Warning" = "Warning";
+"Environment switch completed with warnings. Some versions may not be set correctly. Please check the logs for details." = "Environment switch completed with warnings. Some versions may not be set correctly. Please check the logs for details.";
+

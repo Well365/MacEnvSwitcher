@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var vm = BootstrapViewModel()
+    @StateObject private var vm = TaskID.BootstrapViewModel()
     @State private var autoYes = false
     @State private var showReport = false
     @State private var refreshID = UUID()
@@ -136,9 +136,9 @@ struct ContentView: View {
             Text(tr("Profile Groups")).font(.headline)
             HStack(spacing: 12) {
                 Picker(tr("Select Group"), selection: $vm.selectedGroup) {
-                    Text(tr("None")).tag(ProfileGroup?.none)
+                    Text(tr("None")).tag(Optional<ProfileGroup>.none)
                     ForEach(vm.groups, id: \.self) { g in
-                        Text(g.name).tag(ProfileGroup?.some(g))
+                        Text(g.name).tag(Optional<ProfileGroup>.some(g))
                     }
                 }.frame(maxWidth: 360)
                 Button(tr("Apply Group")) { vm.applySelectedGroup() }
@@ -164,7 +164,7 @@ struct ContentView: View {
             LazyVStack(spacing: 8) {
                 ForEach(TaskID.allCases, id: \.self) { t in
                     TaskRow(task: t,
-                            state: vm.state[t] ?? .init(),
+                            state: vm.state[t] ?? TaskID.TaskState(),
                             onCheck: { vm.check(t) },
                             onInstall: { vm.install(t, autoYes: autoYes) },
                             onToggleSkip: { vm.toggleSkip(t) },
@@ -199,7 +199,7 @@ struct ContentView: View {
 
 struct TaskRow: View {
     let task: TaskID
-    let state: TaskState
+    let state: TaskID.TaskState
     var onCheck: () -> Void
     var onInstall: () -> Void
     var onToggleSkip: () -> Void
