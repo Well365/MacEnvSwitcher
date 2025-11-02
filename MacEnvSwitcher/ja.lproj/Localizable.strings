@@ -49,6 +49,11 @@
 "Settings" = "設定";
 "System" = "システム";
 
+// Settings View
+"Configure application preferences" = "アプリケーション設定";
+"Application Name" = "アプリケーション名";
+"Development Tools" = "開発ツール";
+
 // Language Management
 "Language Management" = "言語バージョン管理";
 "Add Language" = "言語を追加";

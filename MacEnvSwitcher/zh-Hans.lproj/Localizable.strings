@@ -49,6 +49,12 @@
 "Cancel" = "取消";
 "Created: " = "创建时间：";
 
+// Settings View
+"Settings" = "设置";
+"Configure application preferences" = "配置应用偏好设置";
+"Application Name" = "应用名称";
+"Development Tools" = "开发工具";
+
 // Main App
 "Main Features" = "主要功能";
 "Environment Profiles" = "环境配置";

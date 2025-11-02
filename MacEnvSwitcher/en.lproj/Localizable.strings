@@ -49,6 +49,12 @@
 "Cancel" = "Cancel";
 "Created: " = "Created: ";
 
+// Settings View
+"Settings" = "Settings";
+"Configure application preferences" = "Configure application preferences";
+"Application Name" = "Application Name";
+"Development Tools" = "Development Tools";
+
 // Main App
 "Main Features" = "Main Features";
 "Environment Profiles" = "Environment Profiles";

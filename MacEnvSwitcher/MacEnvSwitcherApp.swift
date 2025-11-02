@@ -183,47 +183,223 @@ struct SettingsView: View {
     @ObservedObject private var languageManager = LanguageManager.shared
     
     var body: some View {
-        Form {
-            Section(tr("Language Settings")) {
-                Picker(tr("Display Language"), selection: $languageManager.currentLanguage) {
-                    ForEach(languageManager.availableLanguages) { language in
-                        Text(language.displayName).tag(language)
+        ScrollView {
+            VStack(spacing: 24) {
+                // 标题
+                HStack {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.blue)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(tr("Settings"))
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                        
+                        Text(tr("Configure application preferences"))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+                .padding()
+                
+                Divider()
+                
+                // 语言设置卡片
+                SettingCard(
+                    icon: "globe",
+                    iconColor: .blue,
+                    title: tr("Language Settings")
+                ) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text(tr("Display Language"))
+                                .font(.headline)
+                            
+                            Spacer()
+                            
+                            Picker("", selection: $languageManager.currentLanguage) {
+                                ForEach(languageManager.availableLanguages) { language in
+                                    Text(language.displayName).tag(language)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .frame(width: 150)
+                        }
+                        
+                        HStack(spacing: 8) {
+                            Image(systemName: "info.circle")
+                                .foregroundColor(.orange)
+                                .font(.caption)
+                            
+                            Text(tr("Language changes will take effect after restarting the app"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
                     }
                 }
-                .pickerStyle(.menu)
                 
-                Text(tr("Language changes will take effect after restarting the app"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Section(tr("Startup Settings")) {
-                Toggle(tr("Check tools on startup"), isOn: $checkOnStartup)
-                    .help(tr("Check if Xcode, Homebrew, asdf are installed on app launch"))
+                // 启动设置卡片
+                SettingCard(
+                    icon: "power",
+                    iconColor: .green,
+                    title: tr("Startup Settings")
+                ) {
+                    VStack(spacing: 16) {
+                        Toggle(isOn: $checkOnStartup) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(tr("Check tools on startup"))
+                                    .font(.headline)
+                                
+                                Text(tr("Check if Xcode, Homebrew, asdf are installed on app launch"))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .toggleStyle(SwitchToggleStyle())
+                        
+                        Divider()
+                        
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(tr("Run Setup Wizard"))
+                                    .font(.headline)
+                                
+                                Text(tr("Manually run setup wizard to check and install required tools"))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                showingSetupWizard = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "wrench.and.screwdriver")
+                                    Text(tr("Open Wizard"))
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
                 
-                Button(tr("Run Setup Wizard")) {
-                    showingSetupWizard = true
-                }
-                .help(tr("Manually run setup wizard to check and install required tools"))
-            }
-            
-            Section(tr("About")) {
-                HStack {
-                    Text(tr("Version"))
-                    Spacer()
-                    Text("4.0.0")
-                        .foregroundColor(.secondary)
+                // 关于卡片
+                SettingCard(
+                    icon: "info.circle",
+                    iconColor: .purple,
+                    title: tr("About")
+                ) {
+                    VStack(spacing: 12) {
+                        InfoRow(label: tr("Application Name"), value: "MacEnvSwitcher")
+                        Divider()
+                        InfoRow(label: tr("Version"), value: "4.0.0")
+                        Divider()
+                        InfoRow(label: tr("Description"), value: tr("macOS Development Environment Manager"))
+                        Divider()
+                        
+                        HStack(spacing: 12) {
+                            Image(systemName: "checkmark.shield.fill")
+                                .foregroundColor(.green)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(tr("Development Tools"))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Text("Xcode • Homebrew • asdf • oh-my-zsh")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(8)
+                    }
                 }
                 
-                HStack {
-                    Text(tr("Description"))
-                    Spacer()
-                    Text(tr("macOS Development Environment Manager"))
-                        .foregroundColor(.secondary)
-                }
+                Spacer()
             }
+            .padding()
         }
-        .frame(maxWidth: 600)
-        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(NSColor.windowBackgroundColor))
     }
 }
+
+// 设置卡片组件
+struct SettingCard<Content: View>: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    let content: Content
+    
+    init(icon: String, iconColor: Color, title: String, @ViewBuilder content: () -> Content) {
+        self.icon = icon
+        self.iconColor = iconColor
+        self.title = title
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(iconColor.opacity(0.2))
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 18))
+                        .foregroundColor(iconColor)
+                }
+                
+                Text(title)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+            }
+            
+            content
+        }
+        .padding(20)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+    }
+}
+
+// 信息行组件
+struct InfoRow: View {
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text(value)
+                .font(.subheadline)
+                .fontWeight(.medium)
+        }
+    }
+}
+
