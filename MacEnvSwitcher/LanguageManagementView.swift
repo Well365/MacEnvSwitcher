@@ -113,10 +113,16 @@ struct LanguageCard: View {
                 Text(language.displayName)
                     .font(.headline)
                 
+                // 显示状态：优先显示当前版本，如果没有则显示已安装状态
                 if let version = language.currentVersion {
                     Text("v\(version)")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                } else if language.isInstalled && !language.installedVersions.isEmpty {
+                    // 已安装但未设置全局版本
+                    Text("已安装（未设置全局）")
+                        .font(.caption)
+                        .foregroundColor(.blue)
                 } else {
                     Text("未安装")
                         .font(.caption)
@@ -153,6 +159,8 @@ struct LanguageDetailView: View {
     @State private var installLog: String = ""
     @State private var showSuccessAlert: Bool = false
     @State private var successMessage: String = ""
+    @State private var showSystemVersionAlert: Bool = false
+    @State private var systemVersionMessage: String = ""
     
     // 直接从 viewModel.languages 获取最新的语言数据
     // SwiftUI 会自动响应 @Published 属性的变化
@@ -307,9 +315,33 @@ struct LanguageDetailView: View {
                                     InstalledVersionRow(
                                         version: version,
                                         isCurrent: version == lang.currentVersion,
+                                        isAsdfVersion: lang.asdfInstalledVersions.contains(version),
                                         onSetGlobal: { completion in
                                             // 使用 viewModel 中的最新数据
                                             if let currentLang = currentLanguage {
+                                                // 如果是系统版本，通过设置环境变量来配置
+                                                let isSystemVersion = !lang.asdfInstalledVersions.contains(version)
+                                                if isSystemVersion {
+                                                    viewModel.setSystemVersionAsGlobal(language: currentLang, version: version) { success, message in
+                                                        if success {
+                                                            successMessage = "已成功将系统版本 \(version) 设置为全局版本"
+                                                            showSuccessAlert = true
+                                                            
+                                                            // 延迟刷新完整状态
+                                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                                                                if let updatedLang = viewModel.languages.first(where: { $0.id == currentLang.id }) {
+                                                                    viewModel.refreshInstalledVersions(language: updatedLang)
+                                                                }
+                                                            }
+                                                        } else {
+                                                            systemVersionMessage = message ?? "设置系统版本失败"
+                                                            showSystemVersionAlert = true
+                                                        }
+                                                        completion(success)
+                                                    }
+                                                    return
+                                                }
+                                                
                                                 viewModel.setGlobalVersion(language: currentLang, version: version) { success in
                                                     if success {
                                                         successMessage = "已成功将 \(currentLang.displayName) 全局版本设置为 \(version)"
@@ -457,6 +489,11 @@ struct LanguageDetailView: View {
         } message: {
             Text(successMessage)
         }
+        .alert("系统版本提示", isPresented: $showSystemVersionAlert) {
+            Button("确定", role: .cancel) { }
+        } message: {
+            Text(systemVersionMessage)
+        }
         .onAppear {
             if let lang = currentLanguage {
                 viewModel.loadAvailableVersions(language: lang)
@@ -510,6 +547,7 @@ struct LanguageDetailView: View {
 struct InstalledVersionRow: View {
     let version: String
     let isCurrent: Bool
+    let isAsdfVersion: Bool
     let onSetGlobal: (@escaping (Bool) -> Void) -> Void
     let onUninstall: () -> Void
     
@@ -522,6 +560,17 @@ struct InstalledVersionRow: View {
             Text(version)
                 .font(.system(.body, design: .monospaced))
                 .fontWeight(isCurrent ? .bold : .regular)
+            
+            // 显示版本来源标签
+            if !isAsdfVersion {
+                Text("(系统)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.2))
+                    .cornerRadius(3)
+            }
             
             if isCurrent {
                 Text("(全局)")
@@ -583,7 +632,8 @@ struct InstalledVersionRow: View {
                 .disabled(isSettingGlobal)
             }
             
-            if !showSuccessToast {
+            // 只有 asdf 版本才能卸载，系统版本只能设为全局
+            if isAsdfVersion && !showSuccessToast {
                 Button(action: {
                     showingUninstallAlert = true
                 }) {
@@ -635,7 +685,8 @@ struct ProgrammingLanguage: Identifiable, Equatable {
     let color: Color
     var isInstalled: Bool
     var currentVersion: String?
-    var installedVersions: [String]
+    var installedVersions: [String]        // 所有已安装版本（包括 asdf 和系统）
+    var asdfInstalledVersions: [String]    // 仅 asdf 安装的版本
     var availableVersions: [String]
     var versionSource: VersionSource = .notInstalled
     var versionPath: String?          // 当前版本的路径
@@ -650,6 +701,7 @@ struct ProgrammingLanguage: Identifiable, Equatable {
                lhs.isInstalled == rhs.isInstalled &&
                lhs.currentVersion == rhs.currentVersion &&
                lhs.installedVersions == rhs.installedVersions &&
+               lhs.asdfInstalledVersions == rhs.asdfInstalledVersions &&
                lhs.availableVersions == rhs.availableVersions &&
                lhs.versionSource == rhs.versionSource
     }
@@ -678,6 +730,7 @@ class LanguageManagementViewModel: ObservableObject {
                 color: .green,
                 isInstalled: false,
                 installedVersions: [],
+                asdfInstalledVersions: [],
                 availableVersions: []
             ),
             ProgrammingLanguage(
@@ -688,6 +741,7 @@ class LanguageManagementViewModel: ObservableObject {
                 color: .blue,
                 isInstalled: false,
                 installedVersions: [],
+                asdfInstalledVersions: [],
                 availableVersions: []
             ),
             ProgrammingLanguage(
@@ -698,6 +752,7 @@ class LanguageManagementViewModel: ObservableObject {
                 color: .red,
                 isInstalled: false,
                 installedVersions: [],
+                asdfInstalledVersions: [],
                 availableVersions: []
             ),
             ProgrammingLanguage(
@@ -708,6 +763,7 @@ class LanguageManagementViewModel: ObservableObject {
                 color: .orange,
                 isInstalled: false,
                 installedVersions: [],
+                asdfInstalledVersions: [],
                 availableVersions: []
             ),
             ProgrammingLanguage(
@@ -718,6 +774,7 @@ class LanguageManagementViewModel: ObservableObject {
                 color: .cyan,
                 isInstalled: false,
                 installedVersions: [],
+                asdfInstalledVersions: [],
                 availableVersions: []
             ),
             ProgrammingLanguage(
@@ -728,6 +785,40 @@ class LanguageManagementViewModel: ObservableObject {
                 color: .brown,
                 isInstalled: false,
                 installedVersions: [],
+                asdfInstalledVersions: [],
+                availableVersions: []
+            ),
+            ProgrammingLanguage(
+                id: "php",
+                displayName: "PHP",
+                description: "流行的 Web 开发语言",
+                icon: "server.rack",
+                color: .purple,
+                isInstalled: false,
+                installedVersions: [],
+                asdfInstalledVersions: [],
+                availableVersions: []
+            ),
+            ProgrammingLanguage(
+                id: "scala",
+                displayName: "Scala",
+                description: "多范式编程语言，运行在 JVM 上",
+                icon: "s.circle.fill",
+                color: .red,
+                isInstalled: false,
+                installedVersions: [],
+                asdfInstalledVersions: [],
+                availableVersions: []
+            ),
+            ProgrammingLanguage(
+                id: "kotlin",
+                displayName: "Kotlin",
+                description: "现代 JVM 语言，Android 开发首选",
+                icon: "k.circle.fill",
+                color: .orange,
+                isInstalled: false,
+                installedVersions: [],
+                asdfInstalledVersions: [],
                 availableVersions: []
             )
         ]
@@ -750,28 +841,7 @@ class LanguageManagementViewModel: ObservableObject {
         
         DispatchQueue.global(qos: .userInitiated).async {
             // 1. 读取 ~/.tool-versions 文件获取 asdf 全局配置
-            let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
-            let toolVersionsPath = "\(homeDir)/.tool-versions"
-            var asdfGlobalVersion: String? = nil
-            
-            if let toolVersionsContent = try? String(contentsOfFile: toolVersionsPath) {
-                print("📖 [DEBUG] refreshLanguageStatus 读取 ~/.tool-versions 内容:\n\(toolVersionsContent)")
-                for line in toolVersionsContent.components(separatedBy: .newlines) {
-                    let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
-                    let components = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-                    if components.count >= 2 && components[0] == language.id {
-                        asdfGlobalVersion = components[1]
-                        print("📖 [DEBUG] 找到 \(language.id) 版本: \(asdfGlobalVersion ?? "nil")")
-                        break
-                    }
-                }
-                if asdfGlobalVersion == nil {
-                    print("⚠️ [DEBUG] ~/.tool-versions 中没有找到 \(language.id) 的配置")
-                }
-            } else {
-                print("⚠️ [DEBUG] refreshLanguageStatus 无法读取 ~/.tool-versions 文件")
-            }
+            let asdfGlobalVersion = ToolVersionsManager.readVersion(for: language.id)
             
             // 2. 检查 asdf 插件是否已安装
             let asdfPluginCheck = Shell.run("asdf plugin list | grep -w '\(language.id)'")
@@ -779,7 +849,30 @@ class LanguageManagementViewModel: ObservableObject {
             
             // 3. 获取 asdf 已安装的版本
             let installedResult = Shell.run("asdf list \(language.id) 2>/dev/null")
-            let installedVersions = VersionManager.cleanVersionOutput(installedResult.out)
+            let asdfInstalledVersions = VersionManager.cleanVersionOutput(installedResult.out)
+            
+            // 检测已安装的版本（包括 asdf 和系统安装）
+            var installedVersions = asdfInstalledVersions
+            
+            // 对于 Java，额外检测系统安装的版本
+            if language.id == "java" {
+                let systemJavaVersions = self.detectSystemJavaVersions()
+                // 合并系统版本到已安装版本列表（去重）
+                for systemVersion in systemJavaVersions {
+                    if !installedVersions.contains(systemVersion) {
+                        installedVersions.append(systemVersion)
+                    }
+                }
+            }
+            
+            // 对于其他语言，也尝试检测系统安装的版本
+            // 通过检测系统路径中的可执行文件来判断
+            if installedVersions.isEmpty {
+                if let systemVersion = self.detectSystemInstalledVersion(languageId: language.id) {
+                    installedVersions.append(systemVersion)
+                    print("🔍 [DEBUG] 检测到系统安装的 \(language.id): \(systemVersion)")
+                }
+            }
             
             // 4. 检测当前实际使用的版本和来源
             var (currentVersion, versionSource, versionPath) = self.detectCurrentVersionAndSource(
@@ -788,23 +881,42 @@ class LanguageManagementViewModel: ObservableObject {
                 asdfGlobalVersion: asdfGlobalVersion
             )
             
-            // 5. 如果检测失败但文件中有全局版本配置，使用文件中的版本
-            if currentVersion == nil && asdfGlobalVersion != nil && asdfPluginInstalled {
+            // 5. 检查是否存在系统版本配置（在 .zshrc 等文件中）
+            let hasSystemVersionConfig = ShellConfigManager.hasSystemVersionConfig(languageId: language.id)
+            
+            // 6. 如果存在系统版本配置，优先使用系统版本（系统版本配置会在 asdf 之后执行，优先权更高）
+            if hasSystemVersionConfig {
+                // 从系统版本配置中检测实际使用的版本
+                if let systemVersion = ShellConfigManager.detectSystemVersion(languageId: language.id) {
+                    currentVersion = systemVersion
+                    versionSource = .system
+                    if let systemPath = self.detectSystemVersionPath(languageId: language.id, version: systemVersion) {
+                        versionPath = systemPath
+                    }
+                    print("✅ [DEBUG] 检测到系统版本配置: \(language.id) = \(systemVersion)")
+                }
+            }
+            
+            // 7. 如果检测失败但文件中有全局版本配置，且没有系统版本配置，使用文件中的版本
+            if currentVersion == nil && asdfGlobalVersion != nil && asdfPluginInstalled && !hasSystemVersionConfig {
                 currentVersion = asdfGlobalVersion
                 versionSource = .asdf
                 print("✅ [DEBUG] 从文件读取版本: \(language.id) = \(asdfGlobalVersion ?? "nil")")
             }
             
-            // 6. 如果提供了 preserveVersion，且检测到的版本为空，保留原有版本
+            // 8. 如果提供了 preserveVersion，且检测到的版本为空，保留原有版本
             if let preserveVer = preserveVersion, currentVersion == nil {
                 currentVersion = preserveVer
                 print("✅ [DEBUG] 保留原有版本: \(language.id) = \(preserveVer)")
             }
             
-            // 7. 确定是否已安装（包括非 asdf 方式）
-            let isInstalled = asdfPluginInstalled || 
-                             installedVersions.count > 0 ||
+            // 9. 确定是否已安装（包括非 asdf 方式）
+            // 只要有已安装版本（asdf 或系统），就认为已安装，即使没有设置全局版本
+            let isInstalled = installedVersions.count > 0 || 
+                             asdfPluginInstalled ||
                              (currentVersion != nil && versionSource != .notInstalled)
+            
+            print("📊 [DEBUG] 安装状态判断: \(language.id) - isInstalled=\(isInstalled), installedVersions.count=\(installedVersions.count), asdfPluginInstalled=\(asdfPluginInstalled)")
             
             DispatchQueue.main.async {
                 // 确保索引仍然有效
@@ -821,6 +933,8 @@ class LanguageManagementViewModel: ObservableObject {
                 }
                 
                 updatedLanguage.installedVersions = installedVersions
+                // 保存 asdf 安装的版本（用于区分显示）
+                updatedLanguage.asdfInstalledVersions = asdfInstalledVersions
                 updatedLanguage.versionPath = versionPath
                 
                 // 始终更新 asdfGlobalVersion（从文件读取的值最准确）
@@ -903,6 +1017,12 @@ class LanguageManagementViewModel: ObservableObject {
                 versionSource = .homebrew
                 currentVersion = self.getVersionFromTool(languageId: languageId, toolName: toolName)
             }
+            // 检查是否系统 Java（macOS 特有）
+            else if languageId == "java" && (path.contains("/Library/Java/JavaVirtualMachines/") || path.contains("/usr/libexec/java_home")) {
+                versionSource = .system
+                // 对于 Java，使用更精确的检测方法
+                currentVersion = self.detectSystemJavaVersion()
+            }
             // 检查是否系统自带
             else if path.hasPrefix("/usr/bin/") || path.hasPrefix("/usr/local/bin/") {
                 versionSource = .system
@@ -933,6 +1053,33 @@ class LanguageManagementViewModel: ObservableObject {
         return (currentVersion, versionSource, versionPath)
     }
     
+    /// 检测系统安装的版本（非 asdf）
+    private func detectSystemInstalledVersion(languageId: String) -> String? {
+        let toolName: String = {
+            switch languageId {
+            case "nodejs": return "node"
+            case "golang": return "go"
+            default: return languageId
+            }
+        }()
+        
+        // 检查可执行文件是否存在（排除 asdf shims）
+        let whichResult = Shell.run("which \(toolName) 2>/dev/null")
+        guard whichResult.code == 0, !whichResult.out.isEmpty else {
+            return nil
+        }
+        
+        let executablePath = whichResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 如果是 asdf shim，不算系统安装
+        if executablePath.contains("/.asdf/shims/") {
+            return nil
+        }
+        
+        // 使用 getVersionFromTool 获取版本
+        return getVersionFromTool(languageId: languageId, toolName: toolName)
+    }
+    
     /// 从工具本身获取版本号
     private func getVersionFromTool(languageId: String, toolName: String) -> String? {
         let versionCommands: [String: String] = [
@@ -941,7 +1088,10 @@ class LanguageManagementViewModel: ObservableObject {
             "ruby": "ruby --version",
             "java": "java -version 2>&1 | head -1",
             "golang": "go version",
-            "rust": "rustc --version"
+            "rust": "rustc --version",
+            "php": "php --version",
+            "scala": "scala -version 2>&1",
+            "kotlin": "kotlin -version 2>&1"
         ]
         
         guard let command = versionCommands[languageId] ?? versionCommands[toolName] else {
@@ -961,6 +1111,49 @@ class LanguageManagementViewModel: ObservableObject {
         return nil
     }
     
+    /// 检测当前系统 Java 版本（更精确的方法）
+    private func detectSystemJavaVersion() -> String? {
+        // 方法1: 使用 java_home 获取当前版本
+        let javaHomeResult = Shell.run("/usr/libexec/java_home -V 2>&1 | head -3")
+        if javaHomeResult.code == 0 {
+            let output = javaHomeResult.out
+            // 第一行通常是当前版本，格式如: "Matching Java Virtual Machines (3):" 或版本信息
+            let lines = output.components(separatedBy: .newlines)
+            for line in lines {
+                // 查找版本号
+                if let match = line.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
+                    return String(line[match])
+                } else if let match = line.range(of: #"(\d+\.\d+)"#, options: .regularExpression) {
+                    return String(line[match])
+                }
+            }
+        }
+        
+        // 方法2: 使用 java -version
+        let javaVersionResult = Shell.run("java -version 2>&1 | head -1")
+        if javaVersionResult.code == 0 {
+            let output = javaVersionResult.out
+            if let match = output.range(of: #""(\d+\.\d+\.\d+[^"]*)"#, options: .regularExpression) {
+                let version = String(output[match]).replacingOccurrences(of: "\"", with: "")
+                return version
+            } else if let match = output.range(of: #"(\d+\.\d+\.\d+)"#, options: .regularExpression) {
+                return String(output[match])
+            }
+        }
+        
+        // 方法3: 从 JAVA_HOME 路径提取
+        let javaHome = Shell.run("echo $JAVA_HOME")
+        if !javaHome.out.isEmpty {
+            let path = javaHome.out.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let match = path.range(of: #"jdk[_-]?(\d+\.\d+\.\d+)"#, options: .regularExpression) {
+                let version = String(path[match]).replacingOccurrences(of: "jdk", with: "").replacingOccurrences(of: "-", with: "").replacingOccurrences(of: "_", with: "")
+                return version
+            }
+        }
+        
+        return nil
+    }
+    
     func refreshInstalledVersions(language: ProgrammingLanguage) {
         guard let index = languages.firstIndex(where: { $0.id == language.id }) else { return }
         refreshLanguageStatus(at: index)
@@ -969,14 +1162,268 @@ class LanguageManagementViewModel: ObservableObject {
     func loadAvailableVersions(language: ProgrammingLanguage) {
         guard let index = languages.firstIndex(where: { $0.id == language.id }) else { return }
         
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = Shell.run("asdf list all \(language.id) 2>/dev/null | tail -30", timeout: 15)
-            let versions = VersionManager.cleanVersionOutput(result.out)
+        // 1. 立即显示预置版本（提升用户体验）
+        let predefinedVersions = SoftConfig.getPredefinedVersions(for: language.id)
+        DispatchQueue.main.async {
+            // 确保索引仍然有效
+            guard index < self.languages.count else { return }
             
+            self.languages[index].availableVersions = predefinedVersions
+            // 触发视图更新
+            self.objectWillChange.send()
+            
+            print("📋 [DEBUG] 立即显示预置版本: \(language.id), 共 \(predefinedVersions.count) 个版本")
+        }
+        
+        // 2. 后台加载完整版本列表
+        DispatchQueue.global(qos: .userInitiated).async {
+            // 对于 Java，使用更高效的命令，只获取最近的版本
+            let command: String
+            let limit: Int
+            let timeout: TimeInterval
+            
+            if language.id == "java" {
+                // Java 版本列表非常长，使用 head 只获取最新的版本，避免遍历整个列表
+                // 先尝试获取已安装的版本，然后获取最新的可用版本
+                command = "asdf list all \(language.id) 2>/dev/null | grep -E '^(temurin|adopt|zulu|corretto|openjdk)' | head -50"
+                limit = 50
+                timeout = 8  // 缩短超时时间
+            } else {
+                command = "asdf list all \(language.id) 2>/dev/null | tail -50"
+                limit = 50
+                timeout = 12
+            }
+            
+            let result = Shell.run(command, timeout: timeout)
+            var loadedVersions = VersionManager.cleanVersionOutput(result.out)
+            
+            // 如果命令超时或失败，使用备用方法（仅获取最后几个版本）
+            if loadedVersions.isEmpty || result.code != 0 {
+                print("⚠️ [DEBUG] 加载版本列表超时或失败，使用备用方法")
+                let fallbackCommand = "asdf list all \(language.id) 2>/dev/null | tail -20"
+                let fallbackResult = Shell.run(fallbackCommand, timeout: 5)
+                loadedVersions = VersionManager.cleanVersionOutput(fallbackResult.out)
+            }
+            
+            // 限制加载的版本数量，避免列表过长
+            if loadedVersions.count > limit {
+                loadedVersions = Array(loadedVersions.prefix(limit))
+            }
+            
+            // 3. 合并预置版本和加载的版本，去重
+            // 使用 Set 来快速去重，但保持预置版本的顺序
+            var versionSet = Set<String>()
+            var mergedVersions: [String] = []
+            
+            // 先添加预置版本（保持原有顺序，这些版本通常是经过筛选的稳定版本）
+            for version in predefinedVersions {
+                if !versionSet.contains(version) {
+                    versionSet.insert(version)
+                    mergedVersions.append(version)
+                }
+            }
+            
+            // 然后添加从服务器加载的版本（排除已存在的）
+            var loadedVersionsToAdd: [String] = []
+            for version in loadedVersions {
+                if !versionSet.contains(version) {
+                    versionSet.insert(version)
+                    loadedVersionsToAdd.append(version)
+                }
+            }
+            
+            // 对加载的版本进行排序
+            loadedVersionsToAdd.sort { (v1, v2) -> Bool in
+                return self.compareVersions(v1, v2) > 0
+            }
+            
+            // 将排序后的加载版本追加到预置版本后面
+            mergedVersions.append(contentsOf: loadedVersionsToAdd)
+            
+            // 4. 合并完成后，在主线程更新界面并强制刷新
             DispatchQueue.main.async {
-                self.languages[index].availableVersions = versions
+                // 确保索引仍然有效
+                guard index < self.languages.count else { return }
+                
+                // 更新版本列表
+                self.languages[index].availableVersions = mergedVersions
+                
+                // 强制触发 SwiftUI 视图更新
+                self.objectWillChange.send()
+                
+                print("✅ [DEBUG] 合并版本列表完成并已刷新: \(language.id), 预置 \(predefinedVersions.count) 个, 加载 \(loadedVersions.count) 个, 合并后共 \(mergedVersions.count) 个版本")
             }
         }
+    }
+    
+    /// 比较两个版本号（用于排序）
+    /// 返回: > 0 表示 v1 > v2, < 0 表示 v1 < v2, = 0 表示 v1 == v2
+    private func compareVersions(_ v1: String, _ v2: String) -> Int {
+        // 处理特殊版本标识
+        if v1 == "latest" || v1 == "stable" { return 1 }
+        if v2 == "latest" || v2 == "stable" { return -1 }
+        if v1 == "system" { return -1 }
+        if v2 == "system" { return 1 }
+        
+        // 提取版本号部分（去掉前缀如 temurin-、openjdk- 等）
+        let cleanV1 = cleanVersionString(v1)
+        let cleanV2 = cleanVersionString(v2)
+        
+        let parts1 = cleanV1.components(separatedBy: ".").compactMap { Int($0.components(separatedBy: "+").first ?? $0) }
+        let parts2 = cleanV2.components(separatedBy: ".").compactMap { Int($0.components(separatedBy: "+").first ?? $0) }
+        
+        // 比较每个部分
+        let maxCount = max(parts1.count, parts2.count)
+        for i in 0..<maxCount {
+            let p1 = i < parts1.count ? parts1[i] : 0
+            let p2 = i < parts2.count ? parts2[i] : 0
+            
+            if p1 > p2 { return 1 }
+            if p1 < p2 { return -1 }
+        }
+        
+        return 0
+    }
+    
+    /// 清理版本字符串，提取版本号部分
+    private func cleanVersionString(_ version: String) -> String {
+        // 移除常见的前缀
+        var cleaned = version
+        let prefixes = ["temurin-", "adoptopenjdk-", "adopt-", "zulu-", "corretto-", "openjdk-", "jdk-"]
+        for prefix in prefixes {
+            if cleaned.hasPrefix(prefix) {
+                cleaned = String(cleaned.dropFirst(prefix.count))
+                break
+            }
+        }
+        return cleaned
+    }
+    
+    /// 检测系统安装的 Java 版本（macOS）
+    private func detectSystemJavaVersions() -> [String] {
+        var systemVersions: [String] = []
+        
+        // 方法1: 检查 /Library/Java/JavaVirtualMachines/ 目录（最可靠的方法）
+        let jvmPath = "/Library/Java/JavaVirtualMachines"
+        if let jvmContents = try? FileManager.default.contentsOfDirectory(atPath: jvmPath) {
+            for jvmName in jvmContents {
+                // 解析 JDK 目录名，如 "jdk-11.0.21.jdk"、"temurin-17.0.9+10.jdk"、"zulu-11.jdk"
+                let name = (jvmName as NSString).deletingPathExtension
+                
+                // 尝试提取版本号 - 多种格式
+                var extractedVersion: String? = nil
+                
+                // 格式1: jdk-11.0.21 或 jdk-17
+                if let match = name.range(of: #"jdk[_-](\d+(?:\.\d+(?:\.\d+)?)?)"#, options: .regularExpression) {
+                    let matched = String(name[match])
+                    extractedVersion = matched.replacingOccurrences(of: "jdk", with: "")
+                        .replacingOccurrences(of: "-", with: "")
+                        .replacingOccurrences(of: "_", with: "")
+                }
+                // 格式2: temurin-17.0.9+10
+                else if let match = name.range(of: #"temurin[_-](\d+(?:\.\d+(?:\.\d+)?)?)"#, options: .regularExpression) {
+                    let matched = String(name[match])
+                    extractedVersion = matched.replacingOccurrences(of: "temurin", with: "")
+                        .replacingOccurrences(of: "-", with: "")
+                        .replacingOccurrences(of: "_", with: "")
+                        .components(separatedBy: "+").first // 移除构建号
+                }
+                // 格式3: zulu-11 或 zulu-17.0.9
+                else if let match = name.range(of: #"(zulu|adopt|corretto|openjdk)[_-](\d+(?:\.\d+(?:\.\d+)?)?)"#, options: .regularExpression) {
+                    let matched = String(name[match])
+                    let components = matched.components(separatedBy: "-")
+                    if components.count >= 2 {
+                        extractedVersion = components.last?.components(separatedBy: "+").first
+                    }
+                }
+                // 格式4: 纯数字版本号
+                else if let match = name.range(of: #"(\d+\.\d+\.\d+)"#, options: .regularExpression) {
+                    extractedVersion = String(name[match])
+                }
+                // 格式5: 主版本号（如 11, 17）
+                else if let match = name.range(of: #"(\d+)"#, options: .regularExpression) {
+                    let matched = String(name[match])
+                    // 只接受合理的版本号（8-25之间）
+                    if let majorVersion = Int(matched), majorVersion >= 8 && majorVersion <= 25 {
+                        extractedVersion = matched
+                    }
+                }
+                
+                if let version = extractedVersion, !version.isEmpty {
+                    // 标准化版本格式（确保至少是 x.y 格式）
+                    let components = version.components(separatedBy: ".")
+                    let normalizedVersion: String
+                    if components.count == 1 {
+                        // 只有主版本号，添加 .0
+                        normalizedVersion = "\(components[0]).0"
+                    } else {
+                        normalizedVersion = version
+                    }
+                    
+                    if !systemVersions.contains(normalizedVersion) && !systemVersions.contains(version) {
+                        systemVersions.append(normalizedVersion)
+                    }
+                }
+            }
+        }
+        
+        // 方法2: 使用 /usr/libexec/java_home -V 获取所有系统 Java 版本（作为补充）
+        let javaHomeResult = Shell.run("/usr/libexec/java_home -V 2>&1")
+        if javaHomeResult.code == 0 {
+            let lines = javaHomeResult.out.components(separatedBy: .newlines)
+            for line in lines {
+                // 解析格式如: "Java SE 17.0.9" 或 "OpenJDK 11.0.21" 或路径中的版本号
+                if let match = line.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
+                    let version = String(line[match])
+                    let components = version.components(separatedBy: ".")
+                    let normalizedVersion = components.count >= 2 ? "\(components[0]).\(components[1])" : version
+                    
+                    if !systemVersions.contains(normalizedVersion) && !systemVersions.contains(version) {
+                        systemVersions.append(normalizedVersion)
+                    }
+                } else if let match = line.range(of: #"(\d+\.\d+)"#, options: .regularExpression) {
+                    let version = String(line[match])
+                    if !systemVersions.contains(version) {
+                        systemVersions.append(version)
+                    }
+                }
+            }
+        }
+        
+        // 方法3: 检查 Homebrew 安装的 Java
+        let brewJavaResult = Shell.run("brew list --cask --versions 2>/dev/null | grep -E '(java|openjdk|temurin)'")
+        if brewJavaResult.code == 0 {
+            let lines = brewJavaResult.out.components(separatedBy: .newlines)
+            for line in lines {
+                if let match = line.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
+                    let version = String(line[match])
+                    let components = version.components(separatedBy: ".")
+                    let normalizedVersion = components.count >= 2 ? "\(components[0]).\(components[1])" : version
+                    
+                    if !systemVersions.contains(normalizedVersion) && !systemVersions.contains(version) {
+                        systemVersions.append(normalizedVersion)
+                    }
+                }
+            }
+        }
+        
+        // 排序：按版本号降序排列（最新在前）
+        systemVersions.sort { (v1, v2) -> Bool in
+            let parts1 = v1.components(separatedBy: ".").compactMap { Int($0) }
+            let parts2 = v2.components(separatedBy: ".").compactMap { Int($0) }
+            
+            for i in 0..<max(parts1.count, parts2.count) {
+                let p1 = i < parts1.count ? parts1[i] : 0
+                let p2 = i < parts2.count ? parts2[i] : 0
+                if p1 != p2 {
+                    return p1 > p2
+                }
+            }
+            return false
+        }
+        
+        print("🔍 [DEBUG] 检测到系统 Java 版本: \(systemVersions)")
+        return systemVersions
     }
     
     func installVersion(language: ProgrammingLanguage, version: String, completion: @escaping (Bool, String, String?) -> Void) {
@@ -1031,37 +1478,19 @@ class LanguageManagementViewModel: ObservableObject {
             print("🔧 [DEBUG] 命令执行结果: code=\(result.code), out=\(result.out.prefix(100)), err=\(result.err.prefix(100))")
             
             if success {
-                // 3. 更新 .zshrc 文件，确保 asdf 初始化存在
-                self.ensureAsdfInZshrc()
+                // 3. 删除或注释 shell 配置文件中该语言的系统版本配置（避免系统配置和 asdf 配置冲突）
+                ShellConfigManager.removeSystemVersionConfigFromAllFiles(languageId: language.id)
                 
-                // 4. 验证文件是否真的写入了（立即读取验证）
-                let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
-                let toolVersionsPath = "\(homeDir)/.tool-versions"
+                // 4. 更新 .zshrc 文件，确保 asdf 初始化存在
+                ShellConfigManager.ensureAsdfInZshrc()
                 
-                // 等待一小段时间确保文件写入完成
+                // 5. 验证文件是否真的写入了（立即读取验证）
                 Thread.sleep(forTimeInterval: 0.3)
                 
-                var fileVerified = false
-                var fileVersion: String? = nil
+                let fileVersion = ToolVersionsManager.readVersion(for: language.id)
+                let fileVerified = fileVersion == version
                 
-                if let content = try? String(contentsOfFile: toolVersionsPath) {
-                    print("📄 [DEBUG] ~/.tool-versions 文件内容:\n\(content)")
-                    for line in content.components(separatedBy: .newlines) {
-                        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
-                        let components = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-                        if components.count >= 2 && components[0] == language.id {
-                            fileVersion = components[1]
-                            if components[1] == version {
-                                fileVerified = true
-                            }
-                            break
-                        }
-                    }
-                    print("📄 [DEBUG] 从文件读取: \(language.id) = \(fileVersion ?? "nil"), 匹配=\(fileVerified)")
-                } else {
-                    print("⚠️ [DEBUG] 无法读取 ~/.tool-versions 文件")
-                }
+                print("📄 [DEBUG] 从文件读取: \(language.id) = \(fileVersion ?? "nil"), 匹配=\(fileVerified)")
                 
                 // 5. 如果命令执行成功，立即更新界面（乐观更新）
                 DispatchQueue.main.async {
@@ -1106,6 +1535,626 @@ class LanguageManagementViewModel: ObservableObject {
     }
     
     /// 确保 .zshrc 文件中包含 asdf 初始化，避免重复添加
+    /// 设置系统版本为全局版本（通过环境变量）
+    func setSystemVersionAsGlobal(language: ProgrammingLanguage, version: String, completion: @escaping (Bool, String?) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            // 1. 检测系统版本的安装路径
+            guard let installPath = self.detectSystemVersionPath(languageId: language.id, version: version) else {
+                DispatchQueue.main.async {
+                    completion(false, "无法找到系统版本 \(version) 的安装路径")
+                }
+                return
+            }
+            
+            print("🔍 [DEBUG] 检测到系统版本路径: \(language.id) \(version) -> \(installPath)")
+            
+            // 2. 获取语言对应的环境变量配置
+            guard let envConfig = self.getSystemVersionEnvConfig(languageId: language.id, installPath: installPath, version: version) else {
+                DispatchQueue.main.async {
+                    completion(false, "不支持的语言类型: \(language.id)")
+                }
+                return
+            }
+            
+            // 3. 删除 .tool-versions 中该语言的配置（避免 asdf 配置和系统配置冲突）
+            ToolVersionsManager.removeVersion(for: language.id)
+            
+            // 4. 写入所有 shell 配置文件（.zshrc, .bashrc, .bash_profile, .zprofile 等）
+            let success = ShellConfigManager.setSystemVersionConfigInAllFiles(envConfig: envConfig, languageId: language.id, installPath: installPath)
+            
+            if success {
+                // 4. 更新界面
+                DispatchQueue.main.async {
+                    if let index = self.languages.firstIndex(where: { $0.id == language.id }) {
+                        var updatedLanguage = self.languages[index]
+                        updatedLanguage.currentVersion = version
+                        updatedLanguage.versionSource = .system
+                        updatedLanguage.versionPath = installPath
+                        
+                        self.languages[index] = updatedLanguage
+                        self.objectWillChange.send()
+                        
+                        print("✅ [DEBUG] 系统版本设置成功: \(language.id) = \(version), 路径: \(installPath)")
+                    }
+                    completion(true, nil)
+                }
+            } else {
+                DispatchQueue.main.async {
+                    completion(false, "写入 shell 配置文件失败")
+                }
+            }
+        }
+    }
+    
+    /// 检测系统版本的安装路径
+    private func detectSystemVersionPath(languageId: String, version: String) -> String? {
+        // 对于不同语言，使用不同的检测策略
+        switch languageId {
+        case "java":
+            // Java 特殊处理：直接使用 java_home 工具获取指定版本的路径
+            // 不使用 which java，因为它可能返回 asdf shim 或其他版本管理器的路径
+            
+            // 方法1: 尝试完整版本号（如 11.0.21）
+            var javaHomeResult = Shell.run("/usr/libexec/java_home -v \(version) 2>/dev/null")
+            if javaHomeResult.code == 0, !javaHomeResult.out.isEmpty {
+                let javaHome = javaHomeResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                print("🔍 [DEBUG] 通过完整版本号找到 Java 路径: \(version) -> \(javaHome)")
+                return javaHome
+            }
+            
+            // 方法2: 尝试去掉最后的小版本号（如 11.0）
+            let versionParts = version.components(separatedBy: ".")
+            if versionParts.count >= 2 {
+                let majorMinor = "\(versionParts[0]).\(versionParts[1])"
+                javaHomeResult = Shell.run("/usr/libexec/java_home -v \(majorMinor) 2>/dev/null")
+                if javaHomeResult.code == 0, !javaHomeResult.out.isEmpty {
+                    let javaHome = javaHomeResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                    print("🔍 [DEBUG] 通过主次版本号找到 Java 路径: \(majorMinor) -> \(javaHome)")
+                    return javaHome
+                }
+            }
+            
+            // 方法3: 尝试主版本号（如 11）
+            if let majorVersion = versionParts.first {
+                javaHomeResult = Shell.run("/usr/libexec/java_home -v \(majorVersion) 2>/dev/null")
+                if javaHomeResult.code == 0, !javaHomeResult.out.isEmpty {
+                    let javaHome = javaHomeResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                    print("🔍 [DEBUG] 通过主版本号找到 Java 路径: \(majorVersion) -> \(javaHome)")
+                    return javaHome
+                }
+            }
+            
+            print("⚠️ [DEBUG] 无法找到 Java \(version) 的安装路径")
+            return nil
+            
+        default:
+            // 对于其他语言，使用 which 命令找到可执行文件路径
+            let toolName: String = {
+                switch languageId {
+                case "nodejs": return "node"
+                case "golang": return "go"
+                default: return languageId
+                }
+            }()
+            
+            let whichResult = Shell.run("which \(toolName)")
+            guard whichResult.code == 0, !whichResult.out.isEmpty else {
+                return nil
+            }
+            
+            let executablePath = whichResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // 跳过 asdf shims，如果是 asdf shim 则需要从其他方式检测
+            if executablePath.contains("/.asdf/shims/") {
+                print("⚠️ [DEBUG] which \(toolName) 返回 asdf shim，可能需要手动指定系统版本路径")
+                // 对于系统版本，不应该通过 asdf shim，返回 nil 让用户知道
+                return nil
+            }
+            
+            switch languageId {
+            case "golang":
+                // Go 安装路径通常是可执行文件的父目录的父目录
+                if executablePath.hasSuffix("/bin/go") {
+                    let path = executablePath as NSString
+                    let binPath = path.deletingLastPathComponent
+                    let goRoot = (binPath as NSString).deletingLastPathComponent
+                    return goRoot
+                }
+                return nil
+                
+            case "python":
+                // Python 安装路径是可执行文件的父目录的父目录
+                if executablePath.contains("/bin/python") {
+                    let path = executablePath as NSString
+                    let binPath = path.deletingLastPathComponent
+                    let pythonPath = (binPath as NSString).deletingLastPathComponent
+                    return pythonPath
+                }
+                return nil
+                
+            case "rust":
+                // Rust 安装路径通常是 ~/.rustup 或 /usr/local
+                if executablePath.contains("/.cargo/bin/") {
+                    let path = executablePath as NSString
+                    let binPath = path.deletingLastPathComponent
+                    let rustPath = (binPath as NSString).deletingLastPathComponent
+                    return rustPath
+                }
+                return nil
+                
+            case "ruby":
+                // Ruby 系统安装路径
+                if executablePath.contains("/usr/bin/ruby") || executablePath.contains("/usr/local/bin/ruby") {
+                    return "/usr"
+                } else if executablePath.contains("/opt/homebrew") {
+                    let path = executablePath as NSString
+                    let binPath = path.deletingLastPathComponent
+                    let rubyPath = (binPath as NSString).deletingLastPathComponent
+                    return rubyPath
+                }
+                return nil
+                
+            case "php":
+                // PHP 安装路径
+                if executablePath.contains("/usr/bin/php") {
+                    return "/usr"
+                } else if executablePath.contains("/opt/homebrew") {
+                    let path = executablePath as NSString
+                    let binPath = path.deletingLastPathComponent
+                    let phpPath = (binPath as NSString).deletingLastPathComponent
+                    return phpPath
+                }
+                return nil
+                
+            case "nodejs":
+                // Node.js 系统安装路径
+                if executablePath.contains("/usr/local/bin/node") {
+                    return "/usr/local"
+                } else if executablePath.contains("/opt/homebrew") {
+                    let path = executablePath as NSString
+                    let binPath = path.deletingLastPathComponent
+                    let nodePath = (binPath as NSString).deletingLastPathComponent
+                    return nodePath
+                }
+                return nil
+                
+            default:
+                // 默认返回可执行文件的 bin 目录的父目录
+                let path = executablePath as NSString
+                let binPath = path.deletingLastPathComponent
+                return (binPath as NSString).deletingLastPathComponent
+            }
+        }
+    }
+    
+    /// 获取系统版本的环境变量配置
+    private func getSystemVersionEnvConfig(languageId: String, installPath: String, version: String) -> [String: String]? {
+        var envVars: [String: String] = [:]
+        
+        switch languageId {
+        case "java":
+            envVars["JAVA_HOME"] = installPath
+            // Java 需要确保 JAVA_HOME/bin 在 PATH 最前面，并移除其他 Java 路径
+            envVars["PATH"] = "$JAVA_HOME/bin:$PATH"
+            
+        case "golang":
+            envVars["GOROOT"] = installPath
+            envVars["GOPATH"] = "$HOME/go"
+            envVars["PATH"] = "$GOROOT/bin:$GOPATH/bin:$PATH"
+            
+        case "python":
+            envVars["PYTHON_HOME"] = installPath
+            envVars["PATH"] = "$PYTHON_HOME/bin:$PATH"
+            
+        case "rust":
+            envVars["CARGO_HOME"] = "$HOME/.cargo"
+            envVars["RUSTUP_HOME"] = "$HOME/.rustup"
+            envVars["PATH"] = "$CARGO_HOME/bin:$PATH"
+            
+        case "ruby":
+            envVars["RUBY_HOME"] = installPath
+            envVars["PATH"] = "$RUBY_HOME/bin:$PATH"
+            
+        case "php":
+            envVars["PHP_HOME"] = installPath
+            envVars["PATH"] = "$PHP_HOME/bin:$PATH"
+            
+        case "nodejs":
+            envVars["NODE_HOME"] = installPath
+            envVars["PATH"] = "$NODE_HOME/bin:$PATH"
+            
+        case "typescript":
+            // TypeScript 通常通过 npm 安装，但如果是系统安装，使用类似的配置
+            envVars["TYPESCRIPT_HOME"] = installPath
+            envVars["PATH"] = "$TYPESCRIPT_HOME/bin:$PATH"
+            
+        case "kotlin":
+            // Kotlin 通常通过 Java 运行，需要设置 KOTLIN_HOME
+            envVars["KOTLIN_HOME"] = installPath
+            envVars["PATH"] = "$KOTLIN_HOME/bin:$PATH"
+            
+        default:
+            return nil
+        }
+        
+        return envVars
+    }
+    
+    /// 在所有 shell 配置文件中设置系统版本的环境变量
+    private func setSystemVersionInAllShellConfigs(envConfig: [String: String], languageId: String, installPath: String) -> Bool {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let shellConfigFiles = [
+            "\(homeDir)/.zshrc",
+            "\(homeDir)/.bashrc",
+            "\(homeDir)/.bash_profile",
+            "\(homeDir)/.zprofile",
+            "\(homeDir)/.profile"
+        ]
+        
+        var successCount = 0
+        for configPath in shellConfigFiles {
+            if self.setSystemVersionInShellConfig(configPath: configPath, envConfig: envConfig, languageId: languageId, installPath: installPath) {
+                successCount += 1
+            }
+        }
+        
+        // 至少成功写入一个配置文件就算成功
+        return successCount > 0
+    }
+    
+    /// 在指定的 shell 配置文件中设置系统版本的环境变量
+    private func setSystemVersionInShellConfig(configPath: String, envConfig: [String: String], languageId: String, installPath: String) -> Bool {
+        let fileManager = FileManager.default
+        
+        // 如果文件不存在，创建它
+        if !fileManager.fileExists(atPath: configPath) {
+            try? "".write(toFile: configPath, atomically: true, encoding: .utf8)
+        }
+        
+        // 读取文件内容
+        guard var content = try? String(contentsOfFile: configPath, encoding: .utf8) else {
+            return false
+        }
+        
+        // 对于非 .zshrc 文件，不需要确保 asdf 初始化（只在 .zshrc 中处理）
+        let isZshrc = configPath.hasSuffix(".zshrc")
+        
+        // 1. 移除该语言的所有旧配置块（避免重复）
+        let markerStart = "# MacEnvSwitcher: System \(languageId) version configuration"
+        let markerEnd = "# End MacEnvSwitcher system \(languageId) configuration"
+        
+        while let startRange = content.range(of: markerStart),
+              let endRange = content.range(of: markerEnd, range: startRange.upperBound..<content.endIndex) {
+            content.removeSubrange(startRange.lowerBound..<endRange.upperBound)
+        }
+        
+        // 2. 构建环境变量配置块
+        var envLines: [String] = []
+        var pathToPrepend: String? = nil
+        
+        for (key, value) in envConfig {
+            if key == "PATH" {
+                // PATH 特殊处理：提取需要前置的路径
+                pathToPrepend = value.replacingOccurrences(of: "$PATH", with: "").trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+            } else {
+                envLines.append("export \(key)=\"\(value)\"")
+            }
+        }
+        
+        // 3. 如果有 PATH 需要处理，添加 PATH 设置（确保在最前面）
+        if let pathPrefix = pathToPrepend {
+            // 移除 PATH 中可能存在的旧版本路径，然后将新路径放在最前面
+            envLines.append("")
+            envLines.append("# 确保系统 \(languageId) 版本的 bin 目录在 PATH 最前面")
+            
+            // 根据语言类型，清理可能冲突的路径
+            var pathsToRemove: [String] = []
+            switch languageId {
+            case "java":
+                // 移除其他 Java 相关的路径（包括所有可能的 Java 安装路径）
+                // 需要移除所有包含 Java 相关路径的项
+                pathsToRemove = [
+                    "/Library/Java/JavaVirtualMachines",
+                    "/System/Library/Frameworks/JavaVM.framework",
+                    "/opt/homebrew/Cellar/openjdk",
+                    "/opt/homebrew/opt/openjdk",
+                    "/usr/local/opt/openjdk",
+                    "/usr/local/Cellar/openjdk",
+                    "jdk",
+                    "JavaVirtualMachines",
+                    "openjdk"
+                ]
+                // 特别注意：需要移除 asdf 的 java shim，让系统版本优先
+                // 但是 asdf shims 在 asdf 初始化时已经添加到 PATH，所以我们需要在 PATH 设置时排除它
+            case "golang", "go":
+                pathsToRemove = ["/usr/local/go", "/opt/homebrew/opt/go", "/opt/homebrew/bin/go"]
+            case "python":
+                pathsToRemove = ["/usr/local/opt/python", "/opt/homebrew/opt/python", "/Library/Frameworks/Python.framework"]
+            case "rust":
+                // Rust 的路径通常在用户目录，需要特殊处理
+                pathsToRemove = []
+            case "ruby":
+                pathsToRemove = ["/usr/local/opt/ruby", "/opt/homebrew/opt/ruby", "/System/Library/Frameworks/Ruby.framework"]
+            case "php":
+                pathsToRemove = ["/usr/local/opt/php", "/opt/homebrew/opt/php"]
+            case "nodejs":
+                pathsToRemove = ["/usr/local/opt/node", "/opt/homebrew/opt/node", "/usr/local/lib/node_modules"]
+            default:
+                break
+            }
+            
+            // 构建 PATH 清理和设置命令
+            // 关键：系统版本的路径必须在最前面，在所有其他路径（包括 asdf shims）之前
+            if languageId == "java" {
+                // Java 特殊处理：需要移除所有 Java 相关路径，包括 asdf shims 和 Homebrew 安装的 Java
+                envLines.append("# Java 特殊处理：移除所有其他 Java 路径，确保当前 JAVA_HOME/bin 在最前面")
+                envLines.append("# 移除 asdf java shim、Homebrew 安装的 Java 和其他版本管理器的路径，让系统 Java 版本优先")
+                // 精确清理：移除所有 Java 相关的安装路径
+                envLines.append("export PATH=\"$JAVA_HOME/bin:\"$(echo $PATH | tr ':' '\\n' | grep -v \"\\.asdf/shims\" | grep -v \"/Library/Java/JavaVirtualMachines\" | grep -v \"/System/Library/Frameworks/JavaVM.framework\" | grep -v \"/opt/homebrew/Cellar/openjdk\" | grep -v \"/opt/homebrew/opt/openjdk\" | grep -v \"/opt/homebrew/bin/java\" | grep -v \"/usr/local/opt/openjdk\" | grep -v \"/usr/local/Cellar/openjdk\" | grep -v \"/usr/local/bin/java\" | grep -vE \"(JavaVirtualMachines|JavaVM|jdk-|jdk1|openjdk)\" | grep -v \"$JAVA_HOME/bin\" | tr '\\n' ':' | sed 's/:$//' | sed 's/^://')")
+            } else if !pathsToRemove.isEmpty {
+                // 其他语言：移除冲突路径，并将新路径放在最前面
+                // 规则：1) 系统版本路径在最前面 2) 移除 asdf shims 3) 移除其他版本路径
+                let removePattern = pathsToRemove.joined(separator: "\\|")
+                envLines.append("# 移除其他 \(languageId) 版本路径和 asdf shims，确保系统版本优先")
+                envLines.append("export PATH=\"\(pathPrefix):\"$(echo $PATH | tr ':' '\\n' | grep -vE \"\(removePattern)\" | grep -v \"\\.asdf/shims\" | grep -v \"^\(pathPrefix)$\" | tr '\\n' ':' | sed 's/:$//' | sed 's/^://')")
+            } else {
+                // 通用处理：去重并前置新路径，移除 asdf shims（让系统版本优先）
+                // 适用于没有特定路径需要移除的语言（如 Rust）
+                envLines.append("# 移除 asdf shims，确保系统 \(languageId) 版本优先")
+                envLines.append("export PATH=\"\(pathPrefix):\"$(echo $PATH | tr ':' '\\n' | grep -v \"\\.asdf/shims\" | awk '!seen[$0]++' | grep -v \"^\(pathPrefix)$\" | tr '\\n' ':' | sed 's/:$//' | sed 's/^://')")
+            }
+        }
+        
+        let configBlock = """
+# MacEnvSwitcher: System \(languageId) version configuration
+\(envLines.joined(separator: "\n"))
+# End MacEnvSwitcher system \(languageId) configuration
+
+"""
+        
+        // 4. 查找插入位置（对于 .zshrc，需要在 asdf 初始化之后）
+        var updatedContent = content
+        
+        if isZshrc {
+            // 对于 .zshrc，先确保 asdf 初始化存在
+            ShellConfigManager.ensureAsdfInZshrc()
+            
+            // 重新读取文件（因为 ensureAsdfInZshrc 可能修改了文件）
+            guard let reloadedContent = try? String(contentsOfFile: configPath, encoding: .utf8) else {
+                return false
+            }
+            updatedContent = reloadedContent
+            
+            // 移除该语言的旧配置（如果 ensureAsdfInZshrc 后还有残留）
+            while let startRange = updatedContent.range(of: markerStart),
+                  let endRange = updatedContent.range(of: markerEnd, range: startRange.upperBound..<updatedContent.endIndex) {
+                updatedContent.removeSubrange(startRange.lowerBound..<endRange.upperBound)
+            }
+            
+            // 查找插入位置：在 asdf 初始化块之后（重要：系统版本配置要在 asdf 之后，这样可以覆盖 asdf 的设置）
+            let asdfEndMarker = "# End MacEnvSwitcher asdf initialization"
+            if let asdfEndRange = updatedContent.range(of: asdfEndMarker) {
+                // 在 asdf 初始化之后插入（这样系统版本可以覆盖 asdf shims）
+                let insertIndex = updatedContent.index(asdfEndRange.upperBound, offsetBy: 0)
+                // 确保有换行符
+                var newlineOffset = 0
+                if updatedContent[insertIndex...].hasPrefix("\n") {
+                    newlineOffset = 1
+                }
+                if newlineOffset == 0 {
+                    updatedContent.insert("\n", at: insertIndex)
+                }
+                updatedContent.insert(contentsOf: configBlock, at: updatedContent.index(insertIndex, offsetBy: newlineOffset))
+            } else {
+                // 如果没有找到 asdf 初始化，追加到文件末尾
+                if !updatedContent.hasSuffix("\n") {
+                    updatedContent += "\n"
+                }
+                updatedContent += configBlock
+            }
+        } else {
+            // 对于其他配置文件，直接追加到文件末尾
+            // 移除旧配置
+            while let startRange = updatedContent.range(of: markerStart),
+                  let endRange = updatedContent.range(of: markerEnd, range: startRange.upperBound..<updatedContent.endIndex) {
+                updatedContent.removeSubrange(startRange.lowerBound..<endRange.upperBound)
+            }
+            
+            // 追加新配置
+            if !updatedContent.hasSuffix("\n") {
+                updatedContent += "\n"
+            }
+            updatedContent += configBlock
+        }
+        
+        // 5. 写入文件
+        do {
+            try updatedContent.write(toFile: configPath, atomically: true, encoding: .utf8)
+            let fileName = (configPath as NSString).lastPathComponent
+            print("✅ [DEBUG] 已写入 \(fileName): \(languageId) 环境变量配置")
+            return true
+        } catch {
+            print("❌ [DEBUG] 写入 \(configPath) 失败: \(error)")
+            return false
+        }
+    }
+    
+    /// 从 .tool-versions 文件中删除指定语言的配置
+    private func removeLanguageFromToolVersions(languageId: String) {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let toolVersionsPath = "\(homeDir)/.tool-versions"
+        let fileManager = FileManager.default
+        
+        // 如果文件不存在，直接返回
+        guard fileManager.fileExists(atPath: toolVersionsPath),
+              var content = try? String(contentsOfFile: toolVersionsPath, encoding: .utf8) else {
+            print("📝 [DEBUG] ~/.tool-versions 文件不存在或无法读取，跳过删除操作")
+            return
+        }
+        
+        var lines = content.components(separatedBy: .newlines)
+        var modified = false
+        
+        // 删除包含该语言配置的行
+        lines = lines.filter { line in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            // 如果是注释或空行，保留
+            if trimmed.isEmpty || trimmed.hasPrefix("#") {
+                return true
+            }
+            // 检查是否是目标语言的配置行
+            let components = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+            if components.count >= 2 && components[0] == languageId {
+                modified = true
+                print("🗑️ [DEBUG] 从 ~/.tool-versions 中删除: \(line)")
+                return false  // 删除这一行
+            }
+            return true
+        }
+        
+        if modified {
+            let newContent = lines.joined(separator: "\n")
+            do {
+                try newContent.write(toFile: toolVersionsPath, atomically: true, encoding: .utf8)
+                print("✅ [DEBUG] 已从 ~/.tool-versions 中删除 \(languageId) 的配置")
+            } catch {
+                print("❌ [DEBUG] 删除 ~/.tool-versions 中的配置失败: \(error)")
+            }
+        }
+    }
+    
+    /// 从所有 shell 配置文件中删除或注释系统版本配置
+    private func removeSystemVersionConfigFromShellConfigs(languageId: String) {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let shellConfigFiles = [
+            "\(homeDir)/.zshrc",
+            "\(homeDir)/.bashrc",
+            "\(homeDir)/.bash_profile",
+            "\(homeDir)/.zprofile",
+            "\(homeDir)/.profile"
+        ]
+        
+        for configPath in shellConfigFiles {
+            self.removeSystemVersionConfigFromShellConfig(configPath: configPath, languageId: languageId)
+        }
+    }
+    
+    /// 从指定的 shell 配置文件中删除或注释系统版本配置
+    private func removeSystemVersionConfigFromShellConfig(configPath: String, languageId: String) {
+        let fileManager = FileManager.default
+        
+        // 如果文件不存在，直接返回
+        guard fileManager.fileExists(atPath: configPath),
+              var content = try? String(contentsOfFile: configPath, encoding: .utf8) else {
+            return
+        }
+        
+        let markerStart = "# MacEnvSwitcher: System \(languageId) version configuration"
+        let markerEnd = "# End MacEnvSwitcher system \(languageId) configuration"
+        
+        // 查找并删除系统版本配置块
+        while let startRange = content.range(of: markerStart),
+              let endRange = content.range(of: markerEnd, range: startRange.upperBound..<content.endIndex) {
+            content.removeSubrange(startRange.lowerBound..<endRange.upperBound)
+            let fileName = (configPath as NSString).lastPathComponent
+            print("🗑️ [DEBUG] 已从 \(fileName) 中删除系统 \(languageId) 版本配置块")
+        }
+        
+        // 写入更新后的内容
+        do {
+            try content.write(toFile: configPath, atomically: true, encoding: .utf8)
+        } catch {
+            print("❌ [DEBUG] 更新 \(configPath) 失败: \(error)")
+        }
+    }
+    
+    /// 检查 shell 配置文件中是否存在系统版本配置
+    private func hasSystemVersionConfigInShellConfigs(languageId: String) -> Bool {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let shellConfigFiles = [
+            "\(homeDir)/.zshrc",
+            "\(homeDir)/.bashrc",
+            "\(homeDir)/.bash_profile",
+            "\(homeDir)/.zprofile",
+            "\(homeDir)/.profile"
+        ]
+        
+        for configPath in shellConfigFiles {
+            if self.hasSystemVersionConfigInShellConfig(configPath: configPath, languageId: languageId) {
+                return true
+            }
+        }
+        return false
+    }
+    
+    /// 检查指定的 shell 配置文件中是否存在系统版本配置
+    private func hasSystemVersionConfigInShellConfig(configPath: String, languageId: String) -> Bool {
+        guard let content = try? String(contentsOfFile: configPath, encoding: .utf8) else {
+            return false
+        }
+        
+        let markerStart = "# MacEnvSwitcher: System \(languageId) version configuration"
+        return content.contains(markerStart)
+    }
+    
+    /// 从 shell 配置文件中检测系统版本
+    private func detectSystemVersionFromConfig(languageId: String) -> String? {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let zshrcPath = "\(homeDir)/.zshrc"
+        
+        guard let content = try? String(contentsOfFile: zshrcPath, encoding: .utf8) else {
+            return nil
+        }
+        
+        let markerStart = "# MacEnvSwitcher: System \(languageId) version configuration"
+        let markerEnd = "# End MacEnvSwitcher system \(languageId) configuration"
+        
+        guard let startRange = content.range(of: markerStart),
+              let endRange = content.range(of: markerEnd, range: startRange.upperBound..<content.endIndex) else {
+            return nil
+        }
+        
+        let configBlock = String(content[startRange.lowerBound..<endRange.upperBound])
+        
+        // 根据语言类型提取版本信息
+        switch languageId {
+        case "java":
+            // 查找 JAVA_HOME 路径，提取版本号
+            if let javaHomeMatch = configBlock.range(of: #"export JAVA_HOME="([^"]+)""#, options: .regularExpression) {
+                let javaHomeLine = String(configBlock[javaHomeMatch])
+                let javaHomePath = javaHomeLine.replacingOccurrences(of: "export JAVA_HOME=\"", with: "").replacingOccurrences(of: "\"", with: "")
+                // 从路径中提取版本号
+                if let versionMatch = javaHomePath.range(of: #"jdk-(\d+\.\d+\.\d+)"#, options: .regularExpression) {
+                    return String(javaHomePath[versionMatch]).replacingOccurrences(of: "jdk-", with: "")
+                } else if let versionMatch = javaHomePath.range(of: #"jdk(\d+\.\d+\.\d+)"#, options: .regularExpression) {
+                    return String(javaHomePath[versionMatch]).replacingOccurrences(of: "jdk", with: "")
+                }
+                // 尝试从路径中提取版本（如 jdk-11.0.21.jdk）
+                if javaHomePath.contains("jdk-") {
+                    let components = javaHomePath.components(separatedBy: "/")
+                    for component in components {
+                        if component.contains("jdk-") {
+                            let parts = component.replacingOccurrences(of: ".jdk", with: "").components(separatedBy: "-")
+                            if parts.count >= 2 {
+                                return parts[1]
+                            }
+                        }
+                    }
+                }
+            }
+            
+        case "golang", "go":
+            if let goRootMatch = configBlock.range(of: #"export GOROOT="([^"]+)""#, options: .regularExpression) {
+                // 可以从路径中提取版本，或者执行命令检测
+            }
+            
+        default:
+            break
+        }
+        
+        return nil
+    }
+    
     private func ensureAsdfInZshrc() {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
         let zshrcPath = "\(homeDir)/.zshrc"
@@ -1416,6 +2465,7 @@ struct AddLanguageView: View {
                 isInstalled: false,
                 currentVersion: nil,
                 installedVersions: [],
+                asdfInstalledVersions: [],
                 availableVersions: []
             )
             
