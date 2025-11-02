@@ -248,8 +248,6 @@ struct LanguageDetailView: View {
     
     @State private var selectedVersion: String = ""
     @State private var customVersionInput: String = ""
-    @State private var isInstalling: Bool = false
-    @State private var installLog: String = ""
     @State private var showSuccessAlert: Bool = false
     @State private var successMessage: String = ""
     @State private var showSystemVersionAlert: Bool = false
@@ -264,6 +262,16 @@ struct LanguageDetailView: View {
     // SwiftUI 会自动响应 @Published 属性的变化
     private var currentLanguage: ProgrammingLanguage? {
         viewModel.languages.first(where: { $0.id == language.id })
+    }
+    
+    // 获取当前语言的安装状态（基于语言ID，确保切换语言时显示正确）
+    private var isInstalling: Bool {
+        viewModel.isInstalling(languageId: language.id)
+    }
+    
+    // 获取当前语言的安装日志（基于语言ID，确保切换语言时显示正确）
+    private var installLog: String {
+        viewModel.getInstallLog(languageId: language.id)
     }
     
     // 版本详情信息结构
@@ -362,6 +370,7 @@ struct LanguageDetailView: View {
                                     showVersionDetails = true
                                 }
                                 .font(.caption)
+                                .hidden()  // 暂时隐藏，因为详情窗口有时候没有内容
                             }
                             
                             // 显示 asdf 全局配置状态
@@ -923,15 +932,18 @@ struct LanguageDetailView: View {
     private func installVersion(_ version: String) {
         guard let lang = currentLanguage else { return }
         
-        isInstalling = true
-        installLog = "开始安装 \(lang.displayName) \(version)...\n"
+        // 不再设置本地状态，ViewModel 会自动管理安装状态
+        // 安装日志会通过 ViewModel 的 installLogs 实时更新
         
         viewModel.installVersion(language: lang, version: version) { success, log, tip in
-            installLog += log
+            // 日志已经通过 ViewModel 实时更新，这里只需要处理完成后的逻辑
             if let tip = tip {
-                installLog += "\n\n💡 提示: \(tip)"
+                // 如果需要显示提示，可以追加到日志中
+                DispatchQueue.main.async {
+                    let currentLog = self.viewModel.getInstallLog(languageId: lang.id)
+                    self.viewModel.installLogs[lang.id] = currentLog + "\n\n💡 提示: \(tip)"
+                }
             }
-            isInstalling = false
             
             if success {
                 successMessage = "成功安装 \(lang.displayName) \(version)！"
@@ -947,6 +959,11 @@ struct LanguageDetailView: View {
                 // 清空输入
                 selectedVersion = ""
                 customVersionInput = ""
+                
+                // 延迟清除安装日志（给用户时间查看）
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                    viewModel.clearInstallLog(languageId: lang.id)
+                }
             }
         }
     }
@@ -1133,6 +1150,10 @@ class LanguageManagementViewModel: ObservableObject {
     @Published var languages: [ProgrammingLanguage] = []
     @Published var versionSelectionMode: VersionSelectionMode = .fromList
     @Published var sortMode: LanguageSortMode = .uninstalled  // 默认未安装的在前
+    
+    // 跟踪每个语言的安装状态，确保各语言互不干扰
+    @Published var installingLanguageIds: Set<String> = []
+    @Published var installLogs: [String: String] = [:]  // languageId -> log
     
     private let installers = Installers()
     private let detectors = Detectors()
@@ -2605,16 +2626,56 @@ class LanguageManagementViewModel: ObservableObject {
         return systemVersions
     }
     
+    // 获取指定语言的安装状态
+    func isInstalling(languageId: String) -> Bool {
+        return installingLanguageIds.contains(languageId)
+    }
+    
+    // 获取指定语言的安装日志
+    func getInstallLog(languageId: String) -> String {
+        return installLogs[languageId] ?? ""
+    }
+    
+    // 清除指定语言的安装日志
+    func clearInstallLog(languageId: String) {
+        installLogs.removeValue(forKey: languageId)
+    }
+    
     func installVersion(language: ProgrammingLanguage, version: String, completion: @escaping (Bool, String, String?) -> Void) {
+        let languageId = language.id
+        
+        // 检查是否已经在安装这个语言
+        if installingLanguageIds.contains(languageId) {
+            print("⚠️ [DEBUG] 语言 \(languageId) 正在安装中，跳过重复安装请求")
+            completion(false, "该语言正在安装中，请稍候...", nil)
+            return
+        }
+        
+        // 标记为正在安装
+        DispatchQueue.main.async {
+            self.installingLanguageIds.insert(languageId)
+            self.installLogs[languageId] = "开始安装 \(language.displayName) \(version)...\n"
+            self.objectWillChange.send()
+        }
+        
         DispatchQueue.global(qos: .userInitiated).async {
             var log = ""
             var success = false
             var tip = ""
             
+            // 在安装过程中更新日志（允许实时查看进度）
+            func updateLog(_ newLog: String) {
+                log += newLog
+                DispatchQueue.main.async {
+                    self.installLogs[languageId] = log
+                    self.objectWillChange.send()
+                }
+            }
+            
             // 1. 确保插件已添加
             let pluginCheck = Shell.run("asdf plugin list | grep -w '\(language.id)'")
             if pluginCheck.code != 0 {
-                log += "📦 添加 asdf 插件...\n"
+                updateLog("📦 添加 asdf 插件...\n")
                 
                 // PHP 特殊处理：使用正确的插件 URL
                 let pluginAddCommand: String
@@ -2626,30 +2687,33 @@ class LanguageManagementViewModel: ObservableObject {
                 
                 let pluginResult = Shell.run(pluginAddCommand)
                 if pluginResult.code != 0 {
-                    log += "❌ 插件添加失败: \(pluginResult.err)\n"
-                    log += pluginResult.out
+                    updateLog("❌ 插件添加失败: \(pluginResult.err)\n")
+                    updateLog(pluginResult.out)
                     
                     // PHP 特殊处理：提供更详细的错误信息
                     if language.id == "php" {
-                        log += "\n💡 提示: PHP 插件添加失败。\n"
-                        log += "   请手动运行: asdf plugin add php https://github.com/asdf-community/asdf-php.git\n"
-                        log += "   或检查网络连接和 asdf 配置。\n"
+                        updateLog("\n💡 提示: PHP 插件添加失败。\n")
+                        updateLog("   请手动运行: asdf plugin add php https://github.com/asdf-community/asdf-php.git\n")
+                        updateLog("   或检查网络连接和 asdf 配置。\n")
                     }
                     
                     tip = "插件添加失败，请检查网络连接或手动添加插件。"
                     DispatchQueue.main.async {
+                        self.installLogs[languageId] = log
+                        self.installingLanguageIds.remove(languageId)
+                        self.objectWillChange.send()
                         completion(false, log, tip)
                     }
                     return
                 }
-                log += "✅ 插件已添加\n"
+                updateLog("✅ 插件已添加\n")
             } else {
-                log += "✅ 插件已就绪\n"
+                updateLog("✅ 插件已就绪\n")
             }
             
             // 2. PHP 特殊处理：检查并自动安装依赖项
             if language.id == "php" {
-                log += "🔍 检查 PHP 安装依赖...\n"
+                updateLog("🔍 检查 PHP 安装依赖...\n")
                 let dependencies = ["autoconf", "pkg-config", "libxml2", "openssl"]
                 var missingDeps: [String] = []
                 
@@ -2663,56 +2727,70 @@ class LanguageManagementViewModel: ObservableObject {
                 }
                 
                 if !missingDeps.isEmpty {
-                    log += "⚠️ 缺少以下依赖: \(missingDeps.joined(separator: ", "))\n"
-                    log += "📦 自动安装缺失的依赖...\n"
+                    updateLog("⚠️ 缺少以下依赖: \(missingDeps.joined(separator: ", "))\n")
+                    updateLog("📦 自动安装缺失的依赖...\n")
                     
                     // 检查 Homebrew 是否可用
                     let brewCheck = Shell.run("which brew")
                     if brewCheck.code == 0 {
                         // 自动安装缺失的依赖
                         let installDepsCommand = "brew install \(missingDeps.joined(separator: " "))"
-                        log += "   执行命令: \(installDepsCommand)\n"
+                        updateLog("   执行命令: \(installDepsCommand)\n")
                         
                         let installDepsResult = Shell.run(installDepsCommand, timeout: 300) // 依赖安装可能需要较长时间
-                        log += installDepsResult.out
+                        updateLog(installDepsResult.out)
                         if !installDepsResult.err.isEmpty {
-                            log += "\n⚠️ 依赖安装警告:\n\(installDepsResult.err)"
+                            updateLog("\n⚠️ 依赖安装警告:\n\(installDepsResult.err)")
                         }
                         
                         if installDepsResult.code == 0 {
-                            log += "\n✅ 依赖安装成功\n"
+                            updateLog("\n✅ 依赖安装成功\n")
                         } else {
-                            log += "\n⚠️ 部分依赖可能安装失败，将继续尝试安装 PHP...\n"
+                            updateLog("\n⚠️ 部分依赖可能安装失败，将继续尝试安装 PHP...\n")
                         }
                     } else {
-                        log += "❌ Homebrew 未找到，无法自动安装依赖\n"
-                        log += "💡 请先安装 Homebrew，然后运行: brew install \(missingDeps.joined(separator: " "))\n"
+                        updateLog("❌ Homebrew 未找到，无法自动安装依赖\n")
+                        updateLog("💡 请先安装 Homebrew，然后运行: brew install \(missingDeps.joined(separator: " "))\n")
                     }
                 } else {
-                    log += "✅ 依赖检查通过\n"
+                    updateLog("✅ 依赖检查通过\n")
                 }
             }
             
             // 3. 安装版本 - 使用多种安装方式回退机制（仅对 PHP 和 fastlane）
             var installResult: (code: Int32, out: String, err: String)? = nil
             if language.id == "php" {
+                // 创建一个包装函数来实时更新日志
+                var lastLogLength = log.count
                 success = self.installPhpWithFallback(version: version, log: &log)
+                // 更新新增的日志内容
+                if log.count > lastLogLength {
+                    let newLog = String(log[log.index(log.startIndex, offsetBy: lastLogLength)...])
+                    updateLog(newLog)
+                }
             } else if language.id == "fastlane" {
+                // 创建一个包装函数来实时更新日志
+                var lastLogLength = log.count
                 success = self.installFastlaneWithFallback(version: version, log: &log)
+                // 更新新增的日志内容
+                if log.count > lastLogLength {
+                    let newLog = String(log[log.index(log.startIndex, offsetBy: lastLogLength)...])
+                    updateLog(newLog)
+                }
             } else {
                 // 其他语言使用标准 asdf 安装
-                log += "📥 开始安装 \(language.id) \(version)...\n"
+                updateLog("📥 开始安装 \(language.id) \(version)...\n")
                 installResult = Shell.run("asdf install \(language.id) \(version)", timeout: 600)
-                log += installResult!.out
+                updateLog(installResult!.out)
                 if !installResult!.err.isEmpty {
-                    log += "\n⚠️ 错误输出:\n\(installResult!.err)"
+                    updateLog("\n⚠️ 错误输出:\n\(installResult!.err)")
                 }
                 success = installResult!.code == 0
             }
             
             // 4. 验证安装是否成功
             if success {
-                log += "\n✅ 安装完成，验证中...\n"
+                updateLog("\n✅ 安装完成，验证中...\n")
                 
                 // PHP 特殊验证：需要检查 asdf 和 Homebrew 两种安装方式
                 if language.id == "php" {
@@ -2721,7 +2799,7 @@ class LanguageManagementViewModel: ObservableObject {
                     // 检查 asdf 安装
                     let asdfVerifyResult = Shell.run("asdf list php 2>/dev/null | grep -w '\(version)'")
                     if asdfVerifyResult.code == 0 && !asdfVerifyResult.out.isEmpty {
-                        log += "✅ asdf 版本验证成功: \(version) 已安装\n"
+                        updateLog("✅ asdf 版本验证成功: \(version) 已安装\n")
                         verified = true
                         
                         // 验证可执行文件
@@ -2731,8 +2809,8 @@ class LanguageManagementViewModel: ObservableObject {
                             let phpBinPath = "\(phpPath)/bin/php"
                             let phpCheck = Shell.run("test -f '\(phpBinPath)' && '\(phpBinPath)' --version 2>/dev/null | head -1")
                             if phpCheck.code == 0 {
-                                log += "✅ PHP 可执行文件验证成功\n"
-                                log += "   \(phpCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                                updateLog("✅ PHP 可执行文件验证成功\n")
+                                updateLog("   \(phpCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))\n")
                             }
                         }
                     }
@@ -2800,8 +2878,8 @@ class LanguageManagementViewModel: ObservableObject {
                             }
                             
                             if let phpPath = foundPhpPath, let detectedVersion = foundVersion {
-                                log += "✅ Homebrew PHP 版本验证成功: \(detectedVersion) (通过 php@\(brewVersion))\n"
-                                log += "   路径: \(phpPath)\n"
+                                updateLog("✅ Homebrew PHP 版本验证成功: \(detectedVersion) (通过 php@\(brewVersion))\n")
+                                updateLog("   路径: \(phpPath)\n")
                                 
                                 // 尝试将 Homebrew 版本链接到 asdf（可选，但推荐）
                                 let asdfInstallPath = FileManager.default.homeDirectoryForCurrentUser.path + "/.asdf/installs/php/\(version)"
@@ -2810,9 +2888,9 @@ class LanguageManagementViewModel: ObservableObject {
                                 // 检查是否已存在链接
                                 let linkCheck = Shell.run("test -L '\(asdfInstallPath)' || test -d '\(asdfInstallPath)'")
                                 if linkCheck.code != 0 {
-                                    log += "\n💡 提示: 可以将 Homebrew 版本链接到 asdf 管理:\n"
-                                    log += "   mkdir -p ~/.asdf/installs/php\n"
-                                    log += "   ln -s \(linkPath) ~/.asdf/installs/php/\(version)\n"
+                                    updateLog("\n💡 提示: 可以将 Homebrew 版本链接到 asdf 管理:\n")
+                                    updateLog("   mkdir -p ~/.asdf/installs/php\n")
+                                    updateLog("   ln -s \(linkPath) ~/.asdf/installs/php/\(version)\n")
                                 }
                                 
                                 verified = true
@@ -2823,7 +2901,7 @@ class LanguageManagementViewModel: ObservableObject {
                     if verified {
                         tip = "安装成功！使用 '设为全局' 按钮来启用此版本。"
                     } else {
-                        log += "⚠️ 版本验证失败: 安装可能未完全成功\n"
+                        updateLog("⚠️ 版本验证失败: 安装可能未完全成功\n")
                         success = false
                         tip = "安装可能未完全成功，请检查日志或手动验证。"
                     }
@@ -2834,7 +2912,7 @@ class LanguageManagementViewModel: ObservableObject {
                     // 检查 asdf 安装
                     let asdfVerifyResult = Shell.run("asdf list fastlane 2>/dev/null | grep -w '\(version)'")
                     if asdfVerifyResult.code == 0 && !asdfVerifyResult.out.isEmpty {
-                        log += "✅ asdf 版本验证成功: \(version) 已安装\n"
+                        updateLog("✅ asdf 版本验证成功: \(version) 已安装\n")
                         verified = true
                     }
                     
@@ -2844,7 +2922,7 @@ class LanguageManagementViewModel: ObservableObject {
                         if brewCheck.code == 0 {
                             let versionCheck = Shell.run("fastlane --version 2>/dev/null | tail -1")
                             if versionCheck.code == 0 && !versionCheck.out.isEmpty {
-                                log += "✅ Homebrew Fastlane 验证成功: \(versionCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                                updateLog("✅ Homebrew Fastlane 验证成功: \(versionCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))\n")
                                 verified = true
                             }
                         }
@@ -2856,7 +2934,7 @@ class LanguageManagementViewModel: ObservableObject {
                         if gemCheck.code == 0 && !gemCheck.out.isEmpty {
                             let versionCheck = Shell.run("fastlane --version 2>/dev/null | tail -1")
                             if versionCheck.code == 0 && !versionCheck.out.isEmpty {
-                                log += "✅ Gem Fastlane 验证成功: \(versionCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                                updateLog("✅ Gem Fastlane 验证成功: \(versionCheck.out.trimmingCharacters(in: .whitespacesAndNewlines))\n")
                                 verified = true
                             }
                         }
@@ -2865,7 +2943,7 @@ class LanguageManagementViewModel: ObservableObject {
                     if verified {
                         tip = "安装成功！Fastlane 已可用。"
                     } else {
-                        log += "⚠️ 版本验证失败: 安装可能未完全成功\n"
+                        updateLog("⚠️ 版本验证失败: 安装可能未完全成功\n")
                         success = false
                         tip = "安装可能未完全成功，请检查日志或手动验证。"
                     }
@@ -2873,10 +2951,10 @@ class LanguageManagementViewModel: ObservableObject {
                     // 其他语言的验证
                     let verifyResult = Shell.run("asdf list \(language.id) 2>/dev/null | grep -w '\(version)'")
                     if verifyResult.code == 0 && !verifyResult.out.isEmpty {
-                        log += "✅ 版本验证成功: \(version) 已安装\n"
+                        updateLog("✅ 版本验证成功: \(version) 已安装\n")
                         tip = "安装成功！使用 '设为全局' 按钮来启用此版本。"
                     } else {
-                        log += "⚠️ 版本验证失败: 安装可能未完全成功\n"
+                        updateLog("⚠️ 版本验证失败: 安装可能未完全成功\n")
                         success = false
                         tip = "安装可能未完全成功，请检查日志或手动验证。"
                     }
@@ -2904,6 +2982,13 @@ class LanguageManagementViewModel: ObservableObject {
             }
             
             DispatchQueue.main.async {
+                // 更新安装日志
+                self.installLogs[languageId] = log
+                
+                // 标记安装完成
+                self.installingLanguageIds.remove(languageId)
+                self.objectWillChange.send()
+                
                 completion(success, log, tip)
                 
                 // 5. 如果安装成功，刷新语言状态
