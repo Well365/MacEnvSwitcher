@@ -12,6 +12,10 @@ class LanguageManager: ObservableObject {
         }
     }
     
+    var availableLanguages: [AppLanguage] {
+        AppLanguage.allCases
+    }
+    
     private init() {
         loadLanguagePreference()
     }

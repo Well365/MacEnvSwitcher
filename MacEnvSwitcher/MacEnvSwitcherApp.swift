@@ -180,31 +180,45 @@ struct MainAppView: View {
 struct SettingsView: View {
     @Binding var showingSetupWizard: Bool
     @Binding var checkOnStartup: Bool
+    @ObservedObject private var languageManager = LanguageManager.shared
     
     var body: some View {
         Form {
-            Section("启动设置") {
-                Toggle("启动时检查必需工具", isOn: $checkOnStartup)
-                    .help("每次启动应用时检查 Xcode、Homebrew、asdf 等工具是否已安装")
-                
-                Button("运行设置向导") {
-                    showingSetupWizard = true
+            Section(tr("Language Settings")) {
+                Picker(tr("Display Language"), selection: $languageManager.currentLanguage) {
+                    ForEach(languageManager.availableLanguages) { language in
+                        Text(language.displayName).tag(language)
+                    }
                 }
-                .help("手动运行设置向导，检查并安装必需工具")
+                .pickerStyle(.menu)
+                
+                Text(tr("Language changes will take effect after restarting the app"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
             
-            Section("关于") {
+            Section(tr("Startup Settings")) {
+                Toggle(tr("Check tools on startup"), isOn: $checkOnStartup)
+                    .help(tr("Check if Xcode, Homebrew, asdf are installed on app launch"))
+                
+                Button(tr("Run Setup Wizard")) {
+                    showingSetupWizard = true
+                }
+                .help(tr("Manually run setup wizard to check and install required tools"))
+            }
+            
+            Section(tr("About")) {
                 HStack {
-                    Text("版本")
+                    Text(tr("Version"))
                     Spacer()
                     Text("4.0.0")
                         .foregroundColor(.secondary)
                 }
                 
                 HStack {
-                    Text("描述")
+                    Text(tr("Description"))
                     Spacer()
-                    Text("macOS 开发环境管理工具")
+                    Text(tr("macOS Development Environment Manager"))
                         .foregroundColor(.secondary)
                 }
             }

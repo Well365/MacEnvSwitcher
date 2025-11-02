@@ -58,6 +58,17 @@
 "No languages available" = "利用可能な言語がありません";
 "No matching languages" = "一致する言語がありません";
 "Installing..." = "インストール中...";
+"Language" = "言語";
+"System Default" = "システムデフォルト";
+"Language Settings" = "言語設定";
+"Display Language" = "表示言語";
+"Language changes will take effect after restarting the app" = "言語の変更はアプリを再起動した後に有効になります";
+"Startup Settings" = "起動設定";
+"Check tools on startup" = "起動時にツールをチェック";
+"Run Setup Wizard" = "セットアップウィザードを実行";
+"About" = "について";
+"Description" = "説明";
+"macOS Development Environment Manager" = "macOS 開発環境マネージャー";
 
 // Setup Wizard
 "Environment Setup Wizard" = "環境設定ウィザード";

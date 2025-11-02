@@ -115,6 +115,15 @@
 // Language Management
 "Language" = "语言";
 "System Default" = "系统默认";
+"Language Settings" = "语言设置";
+"Display Language" = "显示语言";
+"Language changes will take effect after restarting the app" = "语言更改将在重启应用后生效";
+"Startup Settings" = "启动设置";
+"Check tools on startup" = "启动时检查必需工具";
+"Run Setup Wizard" = "运行设置向导";
+"About" = "关于";
+"Description" = "描述";
+"macOS Development Environment Manager" = "macOS 开发环境管理工具";
 
 // Version Management
 "Custom..." = "自定义...";

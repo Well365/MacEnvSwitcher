@@ -592,7 +592,7 @@ class LanguageManagementViewModel: ObservableObject {
         guard let index = languages.firstIndex(where: { $0.id == language.id }) else { return }
         
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Shell.run("asdf list all \(language.id) 2>/dev/null | tail -30")
+            let result = Shell.run("asdf list all \(language.id) 2>/dev/null | tail -30", timeout: 15)
             let versions = VersionManager.cleanVersionOutput(result.out)
             
             DispatchQueue.main.async {
@@ -762,10 +762,11 @@ struct AddLanguageView: View {
         
         DispatchQueue.global(qos: .userInitiated).async {
             // 获取所有可用的 asdf 插件
-            let result = Shell.run("asdf plugin list all")
+            let result = Shell.run("asdf plugin list all", timeout: 30)
             
-            if result.code == 0 {
-                var plugins: [AsdfPlugin] = []
+            var plugins: [AsdfPlugin] = []
+            
+            if result.code == 0 && !result.out.isEmpty {
                 let lines = result.out.components(separatedBy: "\n")
                 
                 for line in lines {
@@ -776,22 +777,19 @@ struct AddLanguageView: View {
                         plugins.append(AsdfPlugin(
                             name: name,
                             url: url,
-                            description: getPluginDescription(name)
+                            description: self.getPluginDescription(name)
                         ))
                     }
                 }
-                
-                DispatchQueue.main.async {
-                    self.availablePlugins = plugins.sorted { $0.name < $1.name }
-                    self.isLoading = false
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self.isLoading = false
-                }
+            }
+            
+            DispatchQueue.main.async {
+                self.availablePlugins = plugins.sorted { $0.name < $1.name }
+                self.isLoading = false
             }
         }
     }
+    
     
     private func getPluginDescription(_ name: String) -> String {
         // 常见语言的描述

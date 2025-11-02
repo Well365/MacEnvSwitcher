@@ -84,6 +84,15 @@
 // Language Management
 "Language" = "Language";
 "System Default" = "System Default";
+"Language Settings" = "Language Settings";
+"Display Language" = "Display Language";
+"Language changes will take effect after restarting the app" = "Language changes will take effect after restarting the app";
+"Startup Settings" = "Startup Settings";
+"Check tools on startup" = "Check tools on startup";
+"Run Setup Wizard" = "Run Setup Wizard";
+"About" = "About";
+"Description" = "Description";
+"macOS Development Environment Manager" = "macOS Development Environment Manager";
 
 // Detector tips
 "oh-my-zsh not installed" = "oh-my-zsh not installed";
