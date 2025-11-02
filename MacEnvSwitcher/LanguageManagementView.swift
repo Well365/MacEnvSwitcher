@@ -3006,43 +3006,13 @@ class LanguageManagementViewModel: ObservableObject {
     
     func setGlobalVersion(language: ProgrammingLanguage, version: String, completion: @escaping (Bool) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            // 1. 确保 asdf 插件已添加
-            let pluginCheck = Shell.run("asdf plugin list | grep -w '\(language.id)'")
-            if pluginCheck.code != 0 {
-                // PHP 特殊处理：使用正确的插件 URL
-                let pluginAddCommand: String
-                if language.id == "php" {
-                    pluginAddCommand = "asdf plugin add php https://github.com/asdf-community/asdf-php.git"
-                } else {
-                    pluginAddCommand = "asdf plugin add \(language.id)"
-                }
-                
-                let addPluginResult = Shell.run(pluginAddCommand)
-                if addPluginResult.code != 0 {
-                    DispatchQueue.main.async {
-                        completion(false)
-                    }
-                    return
-                }
+            // 使用统一的版本管理工具
+            let (success, log) = AsdfVersionManager.setGlobalVersion(tool: language.id, version: version, installIfMissing: true)
+            
+            print("🔧 [DEBUG] 设置全局版本: \(language.id) \(version), 结果: \(success ? "成功" : "失败")")
+            if !success {
+                print("❌ [DEBUG] 错误信息: \(log)")
             }
-            
-            // 2. 检测 asdf 版本，确定使用哪个命令
-            let asdfVersionResult = Shell.run("asdf version")
-            let useSetCommand = asdfVersionResult.out.contains("0.18") || 
-                               asdfVersionResult.out.contains("0.17") || 
-                               asdfVersionResult.out.contains("0.16")
-            
-            // 根据 asdf 版本选择正确的命令
-            // asdf 0.18+ 需要使用 'asdf set -u' 来设置全局版本（-u 表示 home directory）
-            let globalCommand = useSetCommand ? "asdf set -u \(language.id) \(version)" : "asdf global \(language.id) \(version)"
-            print("🔧 [DEBUG] asdf 版本: \(asdfVersionResult.out.prefix(50)), 使用命令: \(globalCommand)")
-            
-            // 设置全局版本
-            let result = Shell.run("\(globalCommand) && asdf reshim \(language.id)")
-            let success = result.code == 0
-            
-            // 打印命令执行结果
-            print("🔧 [DEBUG] 命令执行结果: code=\(result.code), out=\(result.out.prefix(100)), err=\(result.err.prefix(100))")
             
             if success {
                 // 3. 删除或注释 shell 配置文件中该语言的系统版本配置（避免系统配置和 asdf 配置冲突）
@@ -3094,7 +3064,7 @@ class LanguageManagementViewModel: ObservableObject {
                 }
             } else {
                 DispatchQueue.main.async {
-                    print("❌ [DEBUG] asdf 设置全局版本命令执行失败: \(result.err)")
+                    print("❌ [DEBUG] 设置全局版本失败: \(log)")
                     completion(false)
                 }
             }

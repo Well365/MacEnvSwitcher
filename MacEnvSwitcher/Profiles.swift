@@ -894,48 +894,8 @@ struct ProfilesStore {
             return (true, "ℹ️ [\(tool)] 版本 \(version) 将通过环境变量配置\n")
         }
         
-        // 检查插件是否已安装
-        let pluginCheck = Shell.run("asdf plugin list 2>/dev/null | grep -q '\(tool)' && echo 'installed' || echo 'not-installed'")
-        if pluginCheck.out.contains("not-installed") {
-            // 尝试安装插件
-            let installPluginResult = Shell.run("asdf plugin add \(tool) 2>&1")
-            if installPluginResult.code != 0 {
-                return (false, "❌ [\(tool)] 插件未安装且安装失败: \(installPluginResult.err)\n")
-            }
-        }
-        
-        // 检查版本是否已安装
-        let checkResult = Shell.run("asdf list \(tool) 2>/dev/null | grep -q '\(version)' && echo 'installed' || echo 'not-installed'")
-        
-        if checkResult.out.contains("not-installed") {
-            // 尝试安装版本
-            let installResult = Shell.run("asdf install \(tool) \(version) 2>&1")
-            if installResult.code != 0 {
-                return (false, "❌ [\(tool)] 安装版本 \(version) 失败: \(installResult.err)\n")
-            }
-        }
-        
-        // 设置全局版本
-        let setResult = Shell.run("asdf global \(tool) \(version) 2>&1")
-        if setResult.code == 0 {
-            return (true, "✅ [\(tool)] 已切换到版本 \(version)\n")
-        } else {
-            // 提供更详细的错误信息
-            var errorMsg = setResult.err.trimmingCharacters(in: .whitespacesAndNewlines)
-            if errorMsg.isEmpty {
-                errorMsg = setResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            if errorMsg.isEmpty {
-                // 检查版本是否真的存在
-                let verifyResult = Shell.run("asdf list \(tool) 2>/dev/null | grep -w '\(version)' || echo 'not-found'")
-                if verifyResult.out.contains("not-found") {
-                    errorMsg = "版本 \(version) 未安装。请先运行 'asdf install \(tool) \(version)'"
-                } else {
-                    errorMsg = "未知错误（退出码: \(setResult.code)）"
-                }
-            }
-            return (false, "❌ [\(tool)] 切换到版本 \(version) 失败: \(errorMsg)\n")
-        }
+        // 使用统一的版本管理工具
+        return AsdfVersionManager.setGlobalVersion(tool: tool, version: version, installIfMissing: true)
     }
     
     // 更新全局 .tool-versions 文件
@@ -1001,12 +961,25 @@ struct ProfilesStore {
                 configSection += "    ASDF_SH=$(brew --prefix asdf 2>/dev/null)/libexec/asdf.sh\n"
                 configSection += "    [ -f \"$ASDF_SH\" ] && source \"$ASDF_SH\"\n"
                 configSection += "fi\n\n"
-                // 确保 asdf shims 在 PATH 最前面（优先级最高）
-                configSection += "# Ensure asdf shims have highest priority in PATH\n"
-                configSection += "if command -v asdf >/dev/null 2>&1; then\n"
-                configSection += "    export PATH=\"$(asdf where asdf)/shims:$PATH\"\n"
-                configSection += "fi\n\n"
             }
+            
+            // 确保 asdf shims 在 PATH 最前面（优先级最高）
+            // 这必须在任何其他 PATH 设置之前执行
+            // 特别重要：移除 Homebrew 的 Ruby/Node/Python 路径，因为 asdf 会管理这些工具
+            configSection += "# Ensure asdf shims have highest priority in PATH\n"
+            configSection += "# This removes Homebrew's Ruby/Node/Python paths and puts asdf shims first\n"
+            configSection += "if command -v asdf >/dev/null 2>&1; then\n"
+            configSection += "    ASDF_SHIMS=$(asdf where asdf 2>/dev/null)/shims\n"
+            configSection += "    ASDF_BIN=$(asdf where asdf 2>/dev/null)/bin\n"
+            configSection += "    # Remove Homebrew's Ruby/Node/Python paths if asdf is managing them\n"
+            configSection += "    # This ensures asdf versions take precedence over Homebrew versions\n"
+            configSection += "    if [ -n \"$ASDF_SHIMS\" ] && [ -n \"$ASDF_BIN\" ]; then\n"
+            configSection += "        # Filter out Homebrew paths for tools managed by asdf\n"
+            configSection += "        NEW_PATH=$(echo \"$PATH\" | tr ':' '\\n' | grep -vE '/opt/homebrew/opt/(ruby|node|python)/bin' | grep -vE '/usr/local/opt/(ruby|node|python)/bin' | grep -vE '/opt/homebrew/opt/(ruby|node|python)/sbin' | grep -vE '/usr/local/opt/(ruby|node|python)/sbin' | tr '\\n' ':' | sed 's/:$//' | sed 's/^://')\n"
+            configSection += "        # Add asdf shims at the very beginning\n"
+            configSection += "        export PATH=\"$ASDF_SHIMS:$ASDF_BIN:$NEW_PATH\"\n"
+            configSection += "    fi\n"
+            configSection += "fi\n\n"
             
             // 添加 asdf 全局版本设置（确保所有工具版本正确）
             if !profile.versions.isEmpty {
@@ -1015,10 +988,18 @@ struct ProfilesStore {
                     // 跳过 Java 和 Gradle，因为它们通常不是通过 asdf 管理的
                     if plugin != "java" && plugin != "gradle" {
                         configSection += "if command -v asdf >/dev/null 2>&1; then\n"
-                        // 强制设置全局版本，覆盖项目目录的 .tool-versions
-                        configSection += "    asdf global \(plugin) \"\(version)\" 2>/dev/null || true\n"
-                        // 确保当前 shell 也使用全局版本
-                        configSection += "    eval \"$(asdf export-shell-version sh \(plugin) \(version))\" 2>/dev/null || true\n"
+                        // 在 shell 脚本中检测 asdf 版本并使用正确的命令
+                        configSection += "    # Detect asdf version and use correct command\n"
+                        configSection += "    ASDF_VERSION=$(asdf version 2>&1 | head -1)\n"
+                        configSection += "    if echo \"$ASDF_VERSION\" | grep -qE '0\\.(1[6-9]|[89])'; then\n"
+                        configSection += "        # asdf 0.16+ uses 'set -u' for global\n"
+                        configSection += "        asdf set -u \(plugin) \"\(version)\" 2>/dev/null || true\n"
+                        configSection += "    else\n"
+                        configSection += "        # Older asdf versions use 'global'\n"
+                        configSection += "        asdf global \(plugin) \"\(version)\" 2>/dev/null || true\n"
+                        configSection += "    fi\n"
+                        // 刷新 shims
+                        configSection += "    asdf reshim \(plugin) 2>/dev/null || true\n"
                         configSection += "fi\n"
                     }
                 }
