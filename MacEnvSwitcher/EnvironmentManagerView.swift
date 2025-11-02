@@ -3,7 +3,6 @@ import SwiftUI
 struct EnvironmentManagerView: View {
     @StateObject private var vm = BootstrapViewModel()
     @State private var showCreateEnvironment = false
-    @State private var showEditEnvironment = false
     @State private var editingProfile: EnvironmentProfile? = nil
     @State private var selectedProfileForAction: EnvironmentProfile? = nil
     @State private var showDeleteConfirmation = false
@@ -60,6 +59,11 @@ struct EnvironmentManagerView: View {
         .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
             refreshID = UUID()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .environmentSwitched)) { _ in
+            // 环境切换后刷新界面
+            vm.reloadProfiles()
+            refreshID = UUID()
+        }
         .sheet(isPresented: $showCreateEnvironment) {
             EnvironmentEditorView(
                 isPresented: $showCreateEnvironment,
@@ -69,18 +73,22 @@ struct EnvironmentManagerView: View {
                     vm.addEnvironment(profile)
                 }
             )
+            .frame(minWidth: 900, idealWidth: 1000, minHeight: 700, idealHeight: 800)
         }
-        .sheet(isPresented: $showEditEnvironment) {
-            if let profile = editingProfile {
-                EnvironmentEditorView(
-                    isPresented: $showEditEnvironment,
-                    profile: .constant(profile),
-                    isNew: false,
-                    onSave: { updatedProfile in
-                        vm.updateEnvironment(updatedProfile)
-                    }
-                )
-            }
+        .sheet(item: $editingProfile) { profile in
+            EnvironmentEditorView(
+                isPresented: Binding(
+                    get: { editingProfile != nil },
+                    set: { if !$0 { editingProfile = nil } }
+                ),
+                profile: .constant(profile),
+                isNew: false,
+                onSave: { updatedProfile in
+                    vm.updateEnvironment(updatedProfile)
+                    editingProfile = nil
+                }
+            )
+            .frame(minWidth: 900, idealWidth: 1000, minHeight: 700, idealHeight: 800)
         }
         .alert(tr("Delete Environment"), isPresented: $showDeleteConfirmation) {
             Button(tr("Cancel"), role: .cancel) { }
@@ -188,7 +196,6 @@ struct EnvironmentManagerView: View {
                             },
                             onEdit: {
                                 editingProfile = profile
-                                showEditEnvironment = true
                             },
                             onDelete: {
                                 selectedProfileForAction = profile

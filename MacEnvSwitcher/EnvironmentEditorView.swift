@@ -78,14 +78,30 @@ struct EnvironmentEditorView: View {
                         } else {
                             VStack(spacing: 8) {
                                 ForEach(editedProfile.versions.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
-                                    HStack {
+                                    HStack(spacing: 12) {
                                         Text(key)
                                             .font(.body)
                                             .fontWeight(.medium)
-                                        Spacer()
-                                        Text(value)
-                                            .font(.system(.body, design: .monospaced))
-                                            .foregroundColor(.secondary)
+                                            .frame(width: 120, alignment: .leading)
+                                        
+                                        TextField("Version", text: Binding(
+                                            get: { editedProfile.versions[key] ?? "" },
+                                            set: { editedProfile.versions[key] = $0 }
+                                        ))
+                                        .textFieldStyle(.roundedBorder)
+                                        .font(.system(.body, design: .monospaced))
+                                        
+                                        Button(action: {
+                                            selectedLanguage = key
+                                            selectedVersion = editedProfile.versions[key] ?? ""
+                                            showVersionEditor = true
+                                        }) {
+                                            Image(systemName: "pencil.circle.fill")
+                                                .foregroundColor(.blue)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help(tr("Edit Version"))
+                                        
                                         Button(action: {
                                             editedProfile.versions.removeValue(forKey: key)
                                         }) {
@@ -93,6 +109,7 @@ struct EnvironmentEditorView: View {
                                                 .foregroundColor(.red)
                                         }
                                         .buttonStyle(.plain)
+                                        .help(tr("Remove"))
                                     }
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 10)
@@ -243,7 +260,7 @@ struct EnvironmentEditorView: View {
                 }
                 .padding(24)
             }
-            .frame(minWidth: 800, idealWidth: 850, minHeight: 600, idealHeight: 700)
+            .frame(minWidth: 900, idealWidth: 1000, minHeight: 700, idealHeight: 800)
             .navigationTitle(isNew ? tr("New Environment") : tr("Edit Environment"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -264,6 +281,7 @@ struct EnvironmentEditorView: View {
                 }
             }
         }
+        .frame(minWidth: 900, idealWidth: 1000, minHeight: 700, idealHeight: 800)
         .sheet(isPresented: $showVersionEditor) {
             VersionEditorSheet(
                 isPresented: $showVersionEditor,
@@ -273,6 +291,7 @@ struct EnvironmentEditorView: View {
                     editedProfile.versions[lang] = ver
                 }
             )
+            .frame(minWidth: 600, idealWidth: 700, minHeight: 500, idealHeight: 600)
         }
         .sheet(isPresented: $showVirtualEnvEditor) {
             VirtualEnvEditorSheet(
@@ -283,6 +302,7 @@ struct EnvironmentEditorView: View {
                     editedProfile.virtualEnvs[lang] = venv
                 }
             )
+            .frame(minWidth: 600, idealWidth: 700, minHeight: 500, idealHeight: 600)
         }
         .sheet(isPresented: $showEnvVarEditor) {
             EnvVarEditorSheet(
@@ -293,6 +313,7 @@ struct EnvironmentEditorView: View {
                     editedProfile.environmentVars[key] = value
                 }
             )
+            .frame(minWidth: 600, idealWidth: 700, minHeight: 500, idealHeight: 600)
         }
     }
 }
@@ -324,78 +345,220 @@ struct VersionEditorSheet: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                Section(tr("Language")) {
-                    Picker(tr("Select Language"), selection: $language) {
-                        ForEach(availableLanguages, id: \.self) { lang in
-                            Text(lang).tag(lang)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Language Selection Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "terminal.fill")
+                                .foregroundColor(.blue)
+                                .font(.title3)
+                            Text(tr("Language"))
+                                .font(.title2)
+                                .fontWeight(.semibold)
                         }
-                    }
-                    .pickerStyle(.menu)
-                }
-                
-                Section(tr("Version")) {
-                    HStack {
-                        // 版本下拉选择
-                        Menu {
-                            ForEach(getVersionOptions(), id: \.self) { ver in
-                                Button(ver) {
-                                    version = ver
-                                }
-                            }
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(tr("Select Language"))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                             
-                            if !language.isEmpty {
-                                Divider()
-                                
-                                Button(action: {
-                                    loadAvailableVersions()
-                                }) {
-                                    HStack {
-                                        Text(tr("Refresh Versions"))
-                                        if isLoadingVersions {
-                                            ProgressView()
-                                                .scaleEffect(0.6)
+                            Menu {
+                                ForEach(availableLanguages, id: \.self) { lang in
+                                    Button(action: {
+                                        language = lang
+                                    }) {
+                                        HStack {
+                                            Text(getLanguageIcon(lang))
+                                            Text(lang.capitalized)
                                         }
                                     }
                                 }
+                            } label: {
+                                HStack {
+                                    if language.isEmpty {
+                                        Text(tr("-- Select a language --"))
+                                            .foregroundColor(.secondary)
+                                    } else {
+                                        HStack(spacing: 6) {
+                                            Text(getLanguageIcon(language))
+                                            Text(language.capitalized)
+                                        }
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.down")
+                                        .foregroundColor(.secondary)
+                                        .font(.caption)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .cornerRadius(10)
                             }
-                        } label: {
-                            HStack {
-                                Text(version.isEmpty ? tr("Select Version") : version)
-                                    .foregroundColor(version.isEmpty ? .secondary : .primary)
-                                Spacer()
-                                Image(systemName: "chevron.down.circle")
-                            }
-                            .padding(8)
-                            .frame(width: 390, height: 44)
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(language.isEmpty ? Color.clear : Color.blue.opacity(0.3), lineWidth: 1)
+                            )
                         }
-                        .disabled(language.isEmpty || isLoadingVersions)
+                        
+                        if !language.isEmpty {
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.caption)
+                                Text("已选择: \(language)")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                            .padding(.leading, 4)
+                        }
                     }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
                     
-                    // 自定义输入框
-                    TextField(tr("Or enter custom version"), text: $version)
-                        .textFieldStyle(.roundedBorder)
-                        .disabled(language.isEmpty)
-                    
-                    Text(tr("Examples:"))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("• latest - Latest version")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Text("• latest:lts - Latest LTS version")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Text("• 18.17.0 - Specific version")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Text("• latest:temurin-17 - Java specific")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                    // Version Selection Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "number.circle.fill")
+                                .foregroundColor(.orange)
+                                .font(.title3)
+                            Text(tr("Version"))
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                        }
+                        
+                        if language.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .font(.largeTitle)
+                                    .foregroundColor(.secondary.opacity(0.5))
+                                Text(tr("Please select a language first"))
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                        } else {
+                            // Version dropdown menu
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text(tr("Select Version"))
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                
+                                Menu {
+                                    ForEach(getVersionOptions(), id: \.self) { ver in
+                                        Button(action: {
+                                            version = ver
+                                        }) {
+                                            HStack {
+                                                if ver == version {
+                                                    Image(systemName: "checkmark")
+                                                        .foregroundColor(.blue)
+                                                }
+                                                Text(ver)
+                                            }
+                                        }
+                                    }
+                                    
+                                    Divider()
+                                    
+                                    Button(action: {
+                                        loadAvailableVersions()
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "arrow.clockwise")
+                                            Text(tr("Refresh Versions from asdf"))
+                                            if isLoadingVersions {
+                                                ProgressView()
+                                                    .scaleEffect(0.6)
+                                            }
+                                        }
+                                    }
+                                } label: {
+                                    HStack {
+                                        if version.isEmpty {
+                                            Image(systemName: "list.bullet")
+                                                .foregroundColor(.secondary)
+                                        } else {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(.green)
+                                        }
+                                        Text(version.isEmpty ? tr("Select Version") : version)
+                                            .foregroundColor(version.isEmpty ? .secondary : .primary)
+                                            .font(.system(.body, design: .monospaced))
+                                        Spacer()
+                                        Image(systemName: "chevron.down")
+                                            .foregroundColor(.secondary)
+                                            .font(.caption)
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 12)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color(NSColor.controlBackgroundColor))
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(version.isEmpty ? Color.clear : Color.green.opacity(0.3), lineWidth: 1)
+                                    )
+                                }
+                                .disabled(isLoadingVersions)
+                            }
+                            
+                            Divider()
+                                .padding(.vertical, 8)
+                            
+                            // Custom version input
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "pencil.circle.fill")
+                                        .foregroundColor(.blue)
+                                        .font(.caption)
+                                    Text(tr("Or enter custom version"))
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                TextField(tr("e.g., 3.14.0, latest, latest:lts"), text: $version)
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.system(.body, design: .monospaced))
+                                    .padding(.horizontal, 4)
+                            }
+                            
+                            // Examples
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "lightbulb.fill")
+                                        .foregroundColor(.yellow)
+                                        .font(.caption)
+                                    Text(tr("Examples"))
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ExampleRow(icon: "star.fill", text: "latest", description: tr("Latest version"))
+                                    ExampleRow(icon: "shield.fill", text: "latest:lts", description: tr("Latest LTS version"))
+                                    ExampleRow(icon: "number", text: "18.17.0", description: tr("Specified version"))
+                                    ExampleRow(icon: "cup.and.saucer.fill", text: "latest:temurin-17", description: tr("Java specific"))
+                                }
+                            }
+                            .padding()
+                            .background(Color(NSColor.textBackgroundColor))
+                            .cornerRadius(10)
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
                 }
+                .padding(.vertical, 24)
             }
+            .frame(minWidth: 600, idealWidth: 700, minHeight: 500, idealHeight: 600)
             .navigationTitle(tr("Add Language Version"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -408,11 +571,51 @@ struct VersionEditorSheet: View {
                         onSave(language, version)
                         isPresented = false
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(language.isEmpty || version.isEmpty)
                 }
             }
         }
-        .frame(minWidth: 500, minHeight: 450)
+        .frame(minWidth: 600, idealWidth: 700, minHeight: 500, idealHeight: 600)
+    }
+    
+    private func getLanguageIcon(_ language: String) -> String {
+        switch language.lowercased() {
+        case "javascript": return "🟢 JavaScript"
+        case "typescript": return "🟢 TypeScript"
+        case "react": return "🟢 React"
+        case "nextjs": return "🟢 Next.js"
+        case "vue": return "🟢 Vue"
+        case "angular": return "🟢 Angular"
+        case "svelte": return "🟢 Svelte"
+        case "solid": return "🟢 Solid"
+        case "tailwind": return "🟢 Tailwind"
+        case "bootstrap": return "🟢 Bootstrap"
+        case "material-ui": return "🟢 Material-UI"
+        case "chakra-ui": return "🟢 Chakra-UI"
+        case "emotion": return "🟢 Emotion"
+        case "styled-components": return "🟢 Styled Components"
+        case "styled-jsx": return "🟢 Styled JSX"
+        case "styled-system": return "🟢 Styled System"
+        case "styled-icons": return "🟢 Styled Icons"
+        case "styled-media-query": return "🟢 Styled Media Query"
+        case "styled-media-query": return "🟢 Styled Media Query"
+        case "java": return "☕ Java"
+        case "kotlin": return "🟢 Kotlin"
+        case "scala": return "🟢 Scala"
+        case "php": return "🟢 PHP"
+        case "nodejs": return "🟢 Node.js"
+        case "python": return "🐍 Python"
+        case "ruby": return "💎 Ruby"
+        case "java": return "☕ Java"
+        case "golang": return "🐹 Golang"
+        case "rust": return "🦀 Rust"
+        case "gradle": return "📦 Gradle"
+        case "maven": return "📦 Maven"
+        case "yarn": return "🧶 Yarn"
+        case "pnpm": return "📦 Pnpm"
+        default: return "📝 Other"
+        }
     }
     
     private func getVersionOptions() -> [String] {
@@ -446,6 +649,39 @@ struct VersionEditorSheet: View {
     }
 }
 
+// 示例行组件
+struct ExampleRow: View {
+    let icon: String
+    let text: String
+    let description: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(.blue)
+                .font(.caption)
+                .frame(width: 20)
+            
+            Text(text)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundColor(.primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(6)
+            
+            Text("-")
+                .foregroundColor(.secondary)
+            
+            Text(description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            Spacer()
+        }
+    }
+}
+
 struct VirtualEnvEditorSheet: View {
     @Binding var isPresented: Bool
     @Binding var language: String
@@ -456,55 +692,124 @@ struct VirtualEnvEditorSheet: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                Section(tr("Language")) {
-                    Picker(tr("Select Language"), selection: $language) {
-                        ForEach(availableLanguages, id: \.self) { lang in
-                            Text(lang).tag(lang)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Language Selection Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(tr("Language"))
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        Picker(tr("Select Language"), selection: $language) {
+                            Text(tr("Select a language")).tag("")
+                            ForEach(availableLanguages, id: \.self) { lang in
+                                Text(lang).tag(lang)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(8)
+                    }
+                    .padding(.horizontal)
+                    
+                    // Virtual Environment Type Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(tr("Virtual Environment Type"))
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        Picker(tr("Type"), selection: $virtualEnv.type) {
+                            ForEach(VirtualEnvType.allCases, id: \.self) { type in
+                                Text(type.displayName).tag(type)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(8)
+                    }
+                    .padding(.horizontal)
+                    
+                    // Configuration Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(tr("Configuration"))
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(tr("Environment Name"))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            TextField(tr("Enter environment name"), text: $virtualEnv.name)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                        
+                        if virtualEnv.type == .pythonVenv || virtualEnv.type == .pythonConda {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(tr("Python Version (Optional)"))
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                
+                                TextField(tr("e.g., 3.14.0"), text: Binding(
+                                    get: { virtualEnv.pythonVersion ?? "" },
+                                    set: { virtualEnv.pythonVersion = $0.isEmpty ? nil : $0 }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                            }
+                        }
+                        
+                        if virtualEnv.type == .rubyGemset {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(tr("Gemset Name (Optional)"))
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                
+                                TextField(tr("e.g., my-project"), text: Binding(
+                                    get: { virtualEnv.gemset ?? "" },
+                                    set: { virtualEnv.gemset = $0.isEmpty ? nil : $0 }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                            }
+                        }
+                        
+                        if virtualEnv.type == .nodeNvm {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(tr("Node Version (Optional)"))
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                
+                                TextField(tr("e.g., 23.11.0"), text: Binding(
+                                    get: { virtualEnv.nodeVersion ?? "" },
+                                    set: { virtualEnv.nodeVersion = $0.isEmpty ? nil : $0 }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                            }
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(tr("Custom Path (Optional)"))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            TextField(tr("e.g., ~/.virtualenvs/myenv"), text: Binding(
+                                get: { virtualEnv.path ?? "" },
+                                set: { virtualEnv.path = $0.isEmpty ? nil : $0 }
+                            ))
+                            .textFieldStyle(.roundedBorder)
                         }
                     }
-                    .pickerStyle(.menu)
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
                 }
-                
-                Section(tr("Virtual Environment Type")) {
-                    Picker(tr("Type"), selection: $virtualEnv.type) {
-                        ForEach(VirtualEnvType.allCases, id: \.self) { type in
-                            Text(type.displayName).tag(type)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-                
-                Section(tr("Configuration")) {
-                    TextField(tr("Environment Name"), text: $virtualEnv.name)
-                    
-                    if virtualEnv.type == .pythonVenv || virtualEnv.type == .pythonConda {
-                        TextField(tr("Python Version (Optional)"), text: Binding(
-                            get: { virtualEnv.pythonVersion ?? "" },
-                            set: { virtualEnv.pythonVersion = $0.isEmpty ? nil : $0 }
-                        ))
-                    }
-                    
-                    if virtualEnv.type == .rubyGemset {
-                        TextField(tr("Gemset Name (Optional)"), text: Binding(
-                            get: { virtualEnv.gemset ?? "" },
-                            set: { virtualEnv.gemset = $0.isEmpty ? nil : $0 }
-                        ))
-                    }
-                    
-                    if virtualEnv.type == .nodeNvm {
-                        TextField(tr("Node Version (Optional)"), text: Binding(
-                            get: { virtualEnv.nodeVersion ?? "" },
-                            set: { virtualEnv.nodeVersion = $0.isEmpty ? nil : $0 }
-                        ))
-                    }
-                    
-                    TextField(tr("Custom Path (Optional)"), text: Binding(
-                        get: { virtualEnv.path ?? "" },
-                        set: { virtualEnv.path = $0.isEmpty ? nil : $0 }
-                    ))
-                }
+                .padding(.vertical, 20)
             }
+            .frame(minWidth: 600, idealWidth: 700, minHeight: 500, idealHeight: 600)
             .navigationTitle(tr("Add Virtual Environment"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -517,10 +822,12 @@ struct VirtualEnvEditorSheet: View {
                         onSave(language, virtualEnv)
                         isPresented = false
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(language.isEmpty || virtualEnv.name.isEmpty)
                 }
             }
         }
+        .frame(minWidth: 600, idealWidth: 700, minHeight: 500, idealHeight: 600)
     }
 }
 
@@ -532,29 +839,99 @@ struct EnvVarEditorSheet: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                Section(tr("Environment Variable")) {
-                    TextField(tr("Variable Name (e.g., JAVA_HOME)"), text: $key)
-                    if #available(macOS 13.0, *) {
-                        TextField(tr("Value"), text: $value, axis: .vertical)
-                            .lineLimit(3)
-                    } else {
-                        TextField(tr("Value"), text: $value)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Environment Variable Input Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(tr("Environment Variable"))
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(tr("Variable Name"))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            TextField(tr("e.g., JAVA_HOME, GRADLE_HOME"), text: $key)
+                                .textFieldStyle(.roundedBorder)
+                                .disableAutocorrection(true)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(tr("Value"))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            if #available(macOS 13.0, *) {
+                                TextField(tr("Enter environment variable value"), text: $value, axis: .vertical)
+                                    .textFieldStyle(.roundedBorder)
+                                    .lineLimit(3...6)
+                            } else {
+                                TextField(tr("Enter environment variable value"), text: $value)
+                                    .textFieldStyle(.roundedBorder)
+                            }
+                        }
                     }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                    
+                    // Examples Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(tr("Examples"))
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("JAVA_HOME")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                Text("/Library/Java/JavaVirtualMachines/jdk1.8.0_361.jdk/Contents/Home")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(NSColor.textBackgroundColor))
+                            .cornerRadius(6)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("GRADLE_HOME")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                Text("/opt/shared_env/android/gradle-7.6.1")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(NSColor.textBackgroundColor))
+                            .cornerRadius(6)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("NODE_ENV")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                Text("development")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(NSColor.textBackgroundColor))
+                            .cornerRadius(6)
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
                 }
-                
-                Section(tr("Examples")) {
-                    Text("JAVA_HOME=/usr/local/java")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("PATH=$PATH:/custom/bin")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("NODE_ENV=development")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                .padding(.vertical, 20)
             }
+            .frame(minWidth: 600, idealWidth: 700, minHeight: 500, idealHeight: 600)
             .navigationTitle(tr("Add Environment Variable"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -567,10 +944,12 @@ struct EnvVarEditorSheet: View {
                         onSave(key, value)
                         isPresented = false
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(key.isEmpty || value.isEmpty)
                 }
             }
         }
+        .frame(minWidth: 600, idealWidth: 700, minHeight: 500, idealHeight: 600)
     }
 }
 

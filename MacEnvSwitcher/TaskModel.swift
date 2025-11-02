@@ -240,12 +240,24 @@ final class BootstrapViewModel: ObservableObject {
     private func showEnvironmentSwitchSuccess(profile: EnvironmentProfile) {
         // 这里可以添加通知或其他UI反馈
         print("✅ Successfully switched to environment: \(profile.name)")
+        print("ℹ️ 提示: 请在终端中运行 'source ~/.zshrc' 或重新打开终端以使配置生效")
         
         // 更新终端标题（如果支持）
         let script = """
         echo "\\033]0;MacEnvSwitcher - \(profile.name)\\007"
         """
         _ = Shell.run(script)
+        
+        // 发送通知以显示提示
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: Notification.Name("EnvironmentSwitchSuccess"),
+                object: profile,
+                userInfo: [
+                    "message": tr("Environment switched successfully! Please run 'source ~/.zshrc' in your terminal or open a new terminal window for the changes to take effect.")
+                ]
+            )
+        }
     }
     
     func deactivateCurrentEnvironment() {

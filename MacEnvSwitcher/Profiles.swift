@@ -1,6 +1,7 @@
 
 import Foundation
 import AppKit
+import Darwin
 
 // MARK: - Enhanced Profile Structures
 
@@ -818,15 +819,261 @@ struct ProfilesStore {
     
     static func setActiveProfile(_ profileName: String) {
         var profiles = loadProfiles()
+        guard let profileIndex = profiles.firstIndex(where: { $0.name == profileName }) else {
+            print("⚠️ Profile '\(profileName)' not found")
+            return
+        }
+        
+        let profile = profiles[profileIndex]
+        
+        // 先取消所有配置的激活状态
         for i in profiles.indices {
-            profiles[i].isActive = (profiles[i].name == profileName)
-            if profiles[i].isActive {
-                profiles[i].lastUsed = Date()
-                // 应用系统级配置
-                applySystemConfiguration(profile: profiles[i])
+            profiles[i].isActive = false
+        }
+        
+        // 激活选中的配置
+        profiles[profileIndex].isActive = true
+        profiles[profileIndex].lastUsed = Date()
+        
+        // 保存配置文件状态
+        saveProfiles(profiles)
+        
+        // 立即应用环境配置（全局切换）
+        applyEnvironmentConfigurationImmediately(profile: profile)
+        
+        // 应用系统级配置
+        applySystemConfiguration(profile: profile)
+    }
+    
+    // 立即应用环境配置（全局切换）
+    private static func applyEnvironmentConfigurationImmediately(profile: EnvironmentProfile) {
+        var logs = "🔄 正在切换全局环境到 '\(profile.name)'...\n\n"
+        var success = true
+        
+        // 1. 切换全局版本
+        for (tool, version) in profile.versions {
+            let toolResult = switchGlobalTool(tool: tool, version: version)
+            logs += toolResult.1
+            if !toolResult.0 {
+                success = false
             }
         }
-        saveProfiles(profiles)
+        
+        // 2. 更新全局 .tool-versions 文件
+        updateGlobalToolVersions(profile: profile)
+        
+        // 3. 更新 shell 配置文件（.zshrc, .bash_profile 等）
+        updateShellProfileFiles(profile: profile)
+        
+        // 4. 刷新 asdf shims
+        let reshimResult = Shell.run("asdf reshim")
+        if reshimResult.code == 0 {
+            logs += "\n✅ 已刷新所有工具的shims\n"
+        } else {
+            logs += "\n⚠️ 刷新shims时出现警告: \(reshimResult.err)\n"
+        }
+        
+        // 5. 应用环境变量
+        applyEnvironmentVariables(profile: profile)
+        
+        // 6. 发送通知以更新界面
+        NotificationCenter.default.post(name: .environmentSwitched, object: profile)
+        
+        if success {
+            print("✅ Environment switched successfully: \(logs)")
+        } else {
+            print("⚠️ Environment switched with warnings: \(logs)")
+        }
+    }
+    
+    // 切换单个工具的全局版本
+    private static func switchGlobalTool(tool: String, version: String) -> (Bool, String) {
+        // Java 和 Gradle 通常不是通过 asdf 管理的，它们通过环境变量设置
+        // 这些工具的配置会在 updateShellProfileFiles 中处理
+        if tool == "java" || tool == "gradle" {
+            return (true, "ℹ️ [\(tool)] 版本 \(version) 将通过环境变量配置\n")
+        }
+        
+        // 检查插件是否已安装
+        let pluginCheck = Shell.run("asdf plugin list 2>/dev/null | grep -q '\(tool)' && echo 'installed' || echo 'not-installed'")
+        if pluginCheck.out.contains("not-installed") {
+            // 尝试安装插件
+            let installPluginResult = Shell.run("asdf plugin add \(tool) 2>&1")
+            if installPluginResult.code != 0 {
+                return (false, "❌ [\(tool)] 插件未安装且安装失败: \(installPluginResult.err)\n")
+            }
+        }
+        
+        // 检查版本是否已安装
+        let checkResult = Shell.run("asdf list \(tool) 2>/dev/null | grep -q '\(version)' && echo 'installed' || echo 'not-installed'")
+        
+        if checkResult.out.contains("not-installed") {
+            // 尝试安装版本
+            let installResult = Shell.run("asdf install \(tool) \(version) 2>&1")
+            if installResult.code != 0 {
+                return (false, "❌ [\(tool)] 安装版本 \(version) 失败: \(installResult.err)\n")
+            }
+        }
+        
+        // 设置全局版本
+        let setResult = Shell.run("asdf global \(tool) \(version) 2>&1")
+        if setResult.code == 0 {
+            return (true, "✅ [\(tool)] 已切换到版本 \(version)\n")
+        } else {
+            return (false, "❌ [\(tool)] 切换到版本 \(version) 失败: \(setResult.err)\n")
+        }
+    }
+    
+    // 更新全局 .tool-versions 文件
+    private static func updateGlobalToolVersions(profile: EnvironmentProfile) {
+        let homeDir = NSHomeDirectory()
+        let toolVersionsPath = homeDir + "/.tool-versions"
+        
+        var content = "# asdf tool versions\n"
+        content += "# Managed by MacEnvSwitcher\n"
+        content += "# Profile: \(profile.name)\n"
+        content += "# Last updated: \(Date())\n\n"
+        
+        // 按字母顺序排序工具
+        for (plugin, version) in profile.versions.sorted(by: { $0.key < $1.key }) {
+            content += "\(plugin) \(version)\n"
+        }
+        
+        do {
+            try content.write(toFile: toolVersionsPath, atomically: true, encoding: .utf8)
+            print("✅ Updated global .tool-versions file")
+        } catch {
+            print("⚠️ Failed to update .tool-versions: \(error.localizedDescription)")
+        }
+    }
+    
+    // 更新 shell 配置文件
+    private static func updateShellProfileFiles(profile: EnvironmentProfile) {
+        let shellConfigFiles = ["~/.zshrc", "~/.bash_profile", "~/.bashrc"]
+        
+        for configFile in shellConfigFiles {
+            let expandedPath = NSString(string: configFile).expandingTildeInPath
+            
+            // 确保文件存在
+            if !FileManager.default.fileExists(atPath: expandedPath) {
+                // 创建文件（如果不存在）
+                try? "# Created by MacEnvSwitcher\n".write(toFile: expandedPath, atomically: true, encoding: .utf8)
+            }
+            
+            guard var content = try? String(contentsOfFile: expandedPath, encoding: .utf8) else {
+                continue
+            }
+            
+            let marker = "# MacEnvSwitcher Environment Configuration"
+            let endMarker = "# End MacEnvSwitcher Configuration"
+            
+            // 移除旧的配置段
+            if let startRange = content.range(of: marker),
+               let endRange = content.range(of: endMarker) {
+                let rangeToRemove = startRange.lowerBound..<endRange.upperBound
+                content.removeSubrange(rangeToRemove)
+                content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            
+            // 添加新的配置段
+            var configSection = "\n\n\(marker)\n"
+            configSection += "# Profile: \(profile.name)\n"
+            configSection += "# Last updated: \(Date())\n\n"
+            
+            // 添加 asdf 初始化（如果还没有）
+            if !content.contains("asdf.sh") {
+                configSection += "# Initialize asdf\n"
+                configSection += "if command -v asdf >/dev/null 2>&1; then\n"
+                configSection += "    ASDF_SH=$(brew --prefix asdf 2>/dev/null)/libexec/asdf.sh\n"
+                configSection += "    [ -f \"$ASDF_SH\" ] && source \"$ASDF_SH\"\n"
+                configSection += "fi\n\n"
+                // 确保 asdf shims 在 PATH 最前面（优先级最高）
+                configSection += "# Ensure asdf shims have highest priority in PATH\n"
+                configSection += "if command -v asdf >/dev/null 2>&1; then\n"
+                configSection += "    export PATH=\"$(asdf where asdf)/shims:$PATH\"\n"
+                configSection += "fi\n\n"
+            }
+            
+            // 添加 asdf 全局版本设置（确保所有工具版本正确）
+            if !profile.versions.isEmpty {
+                configSection += "# Set asdf global versions (override project .tool-versions)\n"
+                for (plugin, version) in profile.versions.sorted(by: { $0.key < $1.key }) {
+                    // 跳过 Java 和 Gradle，因为它们通常不是通过 asdf 管理的
+                    if plugin != "java" && plugin != "gradle" {
+                        configSection += "if command -v asdf >/dev/null 2>&1; then\n"
+                        // 强制设置全局版本，覆盖项目目录的 .tool-versions
+                        configSection += "    asdf global \(plugin) \"\(version)\" 2>/dev/null || true\n"
+                        // 确保当前 shell 也使用全局版本
+                        configSection += "    eval \"$(asdf export-shell-version sh \(plugin) \(version))\" 2>/dev/null || true\n"
+                        configSection += "fi\n"
+                    }
+                }
+                configSection += "\n"
+            }
+            
+            // 添加 Java 特殊处理（优先使用环境变量中指定的 JAVA_HOME）
+            if let javaHome = profile.environmentVars["JAVA_HOME"] {
+                configSection += "# Java configuration (from profile)\n"
+                configSection += "export JAVA_HOME=\"\(javaHome)\"\n"
+                configSection += "[ -d \"$JAVA_HOME\" ] && export PATH=\"$JAVA_HOME/bin:$PATH\"\n"
+            } else if let javaVersion = profile.versions["java"] {
+                // 如果没有指定 JAVA_HOME，尝试通过 asdf 获取
+                configSection += "# Java configuration (via asdf)\n"
+                configSection += "if command -v asdf >/dev/null 2>&1; then\n"
+                configSection += "    JAVA_HOME_ASDF=$(asdf where java \(javaVersion) 2>/dev/null)\n"
+                configSection += "    if [ -n \"$JAVA_HOME_ASDF\" ] && [ -d \"$JAVA_HOME_ASDF\" ]; then\n"
+                configSection += "        export JAVA_HOME=\"$JAVA_HOME_ASDF\"\n"
+                configSection += "        export PATH=\"$JAVA_HOME/bin:$PATH\"\n"
+                configSection += "    fi\n"
+                configSection += "fi\n"
+            }
+            
+            // 添加 Gradle 特殊处理
+            if let gradleHome = profile.environmentVars["GRADLE_HOME"] {
+                configSection += "\n# Gradle configuration\n"
+                configSection += "export GRADLE_HOME=\"\(gradleHome)\"\n"
+                configSection += "[ -d \"$GRADLE_HOME\" ] && export PATH=\"$GRADLE_HOME/bin:$PATH\"\n"
+            }
+            
+            // 添加其他环境变量（排除已经特殊处理的）
+            let excludedKeys = ["JAVA_HOME", "GRADLE_HOME"]
+            for (key, value) in profile.environmentVars.sorted(by: { $0.key < $1.key }) {
+                if !excludedKeys.contains(key) {
+                    configSection += "export \(key)=\"\(value)\"\n"
+                }
+            }
+            
+            // 刷新 asdf shims 以确保命令可用
+            configSection += "\n# Refresh asdf shims\n"
+            configSection += "if command -v asdf >/dev/null 2>&1; then\n"
+            configSection += "    asdf reshim 2>/dev/null || true\n"
+            configSection += "fi\n"
+            
+            configSection += "\n\(endMarker)\n"
+            
+            content += configSection
+            
+            // 写回文件
+            do {
+                try content.write(toFile: expandedPath, atomically: true, encoding: .utf8)
+                print("✅ Updated \(configFile)")
+            } catch {
+                print("⚠️ Failed to update \(configFile): \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    // 应用环境变量到当前进程
+    private static func applyEnvironmentVariables(profile: EnvironmentProfile) {
+        for (key, value) in profile.environmentVars {
+            setenv(key, value, 1)
+        }
+        
+        // 设置 asdf 版本环境变量
+        for (plugin, version) in profile.versions {
+            let envKey = "ASDF_\(plugin.uppercased())_VERSION"
+            setenv(envKey, version, 1)
+        }
     }
     
     // 应用系统级配置
@@ -1077,4 +1324,9 @@ struct ProfilesStore {
             lastUsed: nil
         )
     }
+}
+
+// MARK: - Environment Switch Notification
+extension Notification.Name {
+    static let environmentSwitched = Notification.Name("EnvironmentSwitched")
 }
