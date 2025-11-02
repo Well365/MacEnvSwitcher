@@ -42,6 +42,7 @@ struct MacEnvSwitcherApp: App {
                 }
                 .sheet(isPresented: $showingSetupWizard) {
                     SetupWizardView()
+                        .frame(minWidth: 850, idealWidth: 1000, minHeight: 550, idealHeight: 600)
                         .onDisappear {
                             setupCompleted = true
                         }
@@ -49,7 +50,7 @@ struct MacEnvSwitcherApp: App {
         }
         .commands {
             CommandGroup(replacing: .help) {
-                Button("设置向导") {
+                Button(tr("Basic Software Check")) {
                     showingSetupWizard = true
                 }
                 .keyboardShortcut("?", modifiers: [.command])
@@ -110,6 +111,7 @@ struct MainAppView: View {
     enum Tab {
         case languages
         case profiles
+        case setupWizard
         case settings
     }
     
@@ -141,6 +143,14 @@ struct MainAppView: View {
                         .padding(.vertical, 4)
                         .background(selectedTab == .profiles ? Color.accentColor.opacity(0.2) : Color.clear)
                         .cornerRadius(6)
+                        
+                        Button(action: { selectedTab = .setupWizard }) {
+                            Label(tr("Basic Software Check"), systemImage: "checkmark.shield.fill")
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 4)
+                        .background(selectedTab == .setupWizard ? Color.accentColor.opacity(0.2) : Color.clear)
+                        .cornerRadius(6)
                     }
                     
                     Section(tr("System")) {
@@ -167,6 +177,8 @@ struct MainAppView: View {
                     LanguageManagementView()
                 case .profiles:
                     EnvironmentManagerView()
+                case .setupWizard:
+                    SetupWizardView(showContinueButton: false)
                 case .settings:
                     SettingsView(showingSetupWizard: $showingSetupWizard, checkOnStartup: $checkOnStartup)
                 }
@@ -264,35 +276,6 @@ struct SettingsView: View {
                         }
                         .toggleStyle(SwitchToggleStyle())
                         
-                        Divider()
-                        
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(tr("Run Setup Wizard"))
-                                    .font(.headline)
-                                
-                                Text(tr("Manually run setup wizard to check and install required tools"))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            Button(action: {
-                                showingSetupWizard = true
-                            }) {
-                                HStack {
-                                    Image(systemName: "wrench.and.screwdriver")
-                                    Text(tr("Open Wizard"))
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(8)
-                            }
-                            .buttonStyle(.plain)
-                        }
                     }
                 }
                 

@@ -4,93 +4,96 @@ import SwiftUI
 struct SetupWizardView: View {
     @StateObject private var viewModel = SetupWizardViewModel()
     @Environment(\.dismiss) var dismiss
+    var showContinueButton: Bool = true
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Header
-                VStack(spacing: 8) {
-                    Image(systemName: "wrench.and.screwdriver.fill")
-                        .font(.system(size: 48))
-                        .foregroundColor(.blue)
-                    
-                    Text(tr("Environment Setup Wizard"))
-                        .font(.title)
-                        .fontWeight(.bold)
-                    
-                    Text(tr("Installing required development tools for first-time use"))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    // 检查进度摘要
-                    if viewModel.isChecking {
-                        HStack(spacing: 8) {
-                            ProgressView()
-                                .scaleEffect(0.7)
-                            Text(tr("Checking system environment..."))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.top, 8)
-                    } else {
-                        HStack(spacing: 20) {
-                            StatusBadge(
-                                icon: "checkmark.circle.fill",
-                                color: .green,
-                                count: viewModel.installedCount,
-                                label: tr("Installed")
-                            )
-                            
-                            StatusBadge(
-                                icon: "exclamationmark.circle.fill",
-                                color: .orange,
-                                count: viewModel.missingCount,
-                                label: tr("Pending")
-                            )
-                            
-                            StatusBadge(
-                                icon: "xmark.circle.fill",
-                                color: .red,
-                                count: viewModel.errorCount,
-                                label: tr("Error")
-                            )
-                        }
-                        .padding(.top, 8)
+        VStack(spacing: 0) {
+            // Header
+            VStack(spacing: 8) {
+                Image(systemName: "wrench.and.screwdriver.fill")
+                    .font(.system(size: 48))
+                    .foregroundColor(.blue)
+                
+                Text(tr("Environment Setup Wizard"))
+                    .font(.title)
+                    .fontWeight(.bold)
+                
+                Text(tr("Installing required development tools for first-time use"))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                // 检查进度摘要
+                if viewModel.isChecking {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                        Text(tr("Checking system environment..."))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top, 8)
+                } else {
+                    HStack(spacing: 20) {
+                        StatusBadge(
+                            icon: "checkmark.circle.fill",
+                            color: .green,
+                            count: viewModel.installedCount,
+                            label: tr("Installed")
+                        )
+                        
+                        StatusBadge(
+                            icon: "exclamationmark.circle.fill",
+                            color: .orange,
+                            count: viewModel.missingCount,
+                            label: tr("Pending")
+                        )
+                        
+                        StatusBadge(
+                            icon: "xmark.circle.fill",
+                            color: .red,
+                            count: viewModel.errorCount,
+                            label: tr("Error")
+                        )
+                    }
+                    .padding(.top, 8)
+                }
+            }
+            .padding(.top, 20)
+            .padding(.bottom, 20)
+            
+            // 必需工具列表
+            ScrollView {
+                VStack(spacing: 16) {
+                    ForEach(viewModel.requiredTools) { tool in
+                        RequiredToolCard(tool: tool, viewModel: viewModel)
                     }
                 }
-                .padding(.top, 40)
-                .padding(.bottom, 30)
-                
-                // 必需工具列表
-                ScrollView {
-                    VStack(spacing: 16) {
-                        ForEach(viewModel.requiredTools) { tool in
-                            RequiredToolCard(tool: tool, viewModel: viewModel)
-                        }
+                .padding(.horizontal)
+                .padding(.bottom, 16)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            Divider()
+            
+            // Bottom Actions
+            HStack(spacing: 16) {
+                // 检查所有按钮
+                Button(action: {
+                    viewModel.checkAllTools()
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.clockwise")
+                        Text(tr("Recheck All"))
                     }
+                    .frame(maxWidth: .infinity)
                     .padding()
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
                 }
+                .buttonStyle(PlainButtonStyle())
                 
-                Divider()
-                
-                // Bottom Actions
-                HStack(spacing: 16) {
-                    // 检查所有按钮
-                    Button(action: {
-                        viewModel.checkAllTools()
-                    }) {
-                        HStack {
-                            Image(systemName: "arrow.clockwise")
-                            Text(tr("Recheck All"))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(8)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    // 继续按钮
+                // 继续按钮（仅在作为 sheet 显示时显示）
+                if showContinueButton {
                     Button(action: {
                         if viewModel.canProceed {
                             dismiss()
@@ -109,11 +112,11 @@ struct SetupWizardView: View {
                     .buttonStyle(PlainButtonStyle())
                     .disabled(!viewModel.canProceed)
                 }
-                .padding()
             }
-            .navigationTitle(tr("Setup Wizard"))
+            .padding()
         }
-        .frame(minWidth: 950, idealWidth: 1000, minHeight: 750, idealHeight: 800)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             viewModel.checkAllTools()
         }
