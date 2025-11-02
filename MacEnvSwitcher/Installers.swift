@@ -2269,11 +2269,15 @@ fi
                 result = "⚠️ go version: \(goResult.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
             }
         case "java":
-            let javaResult = Shell.run("java -version 2>&1")
+            // Try --version first (newer Java), then fallback to -version
+            var javaResult = Shell.run("java --version 2>&1")
+            if javaResult.code != 0 || javaResult.out.isEmpty {
+                javaResult = Shell.run("java -version 2>&1")
+            }
             if javaResult.code == 0 && javaResult.out.contains(expectedVersion.replacingOccurrences(of: "openjdk-", with: "")) {
-                result = "✅ java -version: \(expectedVersion) detected\n"
+                result = "✅ java --version: \(expectedVersion) detected\n"
             } else {
-                result = "⚠️ java -version: \(javaResult.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+                result = "⚠️ java --version: \(javaResult.out.trimmingCharacters(in: .whitespacesAndNewlines))\n"
             }
         default:
             let genericResult = Shell.run("\(plugin) --version 2>/dev/null || \(plugin) -v 2>/dev/null")
@@ -2303,7 +2307,7 @@ echo "PATH: $PATH"
     case "python": return "echo \"Python: $(python --version 2>/dev/null || echo 'not found')\""
     case "nodejs": return "echo \"Node.js: $(node --version 2>/dev/null || echo 'not found')\""
     case "golang": return "echo \"Go: $(go version 2>/dev/null || echo 'not found')\""
-    case "java": return "echo \"Java: $(java -version 2>&1 | head -n1 || echo 'not found')\""
+    case "java": return "echo \"Java: $(java --version 2>&1 | head -n1 || java -version 2>&1 | head -n1 || echo 'not found')\""
     default: return "echo \"\(plugin.capitalized): $(\(plugin) --version 2>/dev/null || \(plugin) -v 2>/dev/null || echo 'not found')\""
     }
 }.joined(separator: "\n"))

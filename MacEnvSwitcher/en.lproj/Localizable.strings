@@ -223,3 +223,26 @@
 "Warning" = "Warning";
 "Environment switch completed with warnings. Some versions may not be set correctly. Please check the logs for details." = "Environment switch completed with warnings. Some versions may not be set correctly. Please check the logs for details.";
 
+// Switch Logs
+"Switch Logs" = "Switch Logs";
+"Search logs..." = "Search logs...";
+"All Profiles" = "All Profiles";
+"All Tools" = "All Tools";
+"All" = "All";
+"Success" = "Success";
+"Failed" = "Failed";
+"No logs found" = "No logs found";
+"Clear All Logs" = "Clear All Logs";
+"Log Details" = "Log Details";
+"Basic Information" = "Basic Information";
+"Profile" = "Profile";
+"Tool" = "Tool";
+"Status" = "Status";
+"From Version" = "From Version";
+"To Version" = "To Version";
+"From Source" = "From Source";
+"To Source" = "To Source";
+"Timestamp" = "Timestamp";
+"Error Message" = "Error Message";
+"Detailed Log" = "Detailed Log";
+"Close" = "Close";

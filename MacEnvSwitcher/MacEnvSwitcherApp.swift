@@ -113,6 +113,7 @@ struct MainAppView: View {
         case profiles
         case setupWizard
         case settings
+        case logs
     }
     
     var body: some View {
@@ -154,6 +155,14 @@ struct MainAppView: View {
                     }
                     
                     Section(tr("System")) {
+                        Button(action: { selectedTab = .logs }) {
+                            Label(tr("Switch Logs"), systemImage: "doc.text.fill")
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 4)
+                        .background(selectedTab == .logs ? Color.accentColor.opacity(0.2) : Color.clear)
+                        .cornerRadius(6)
+                        
                         Button(action: { selectedTab = .settings }) {
                             Label(tr("Settings"), systemImage: "gear")
                         }
@@ -179,6 +188,8 @@ struct MainAppView: View {
                     EnvironmentManagerView()
                 case .setupWizard:
                     SetupWizardView(showContinueButton: false)
+                case .logs:
+                    SwitchLogView()
                 case .settings:
                     SettingsView(showingSetupWizard: $showingSetupWizard, checkOnStartup: $checkOnStartup)
                 }

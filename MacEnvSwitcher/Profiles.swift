@@ -849,12 +849,30 @@ struct ProfilesStore {
     private static func applyEnvironmentConfigurationImmediately(profile: EnvironmentProfile) {
         var logs = "🔄 正在切换全局环境到 '\(profile.name)'...\n\n"
         var success = true
+        var toolDetails: [String: (from: String?, to: String, fromSource: String?, toSource: String, success: Bool)] = [:]
         
         // 1. 切换全局版本
         for (tool, version) in profile.versions {
+            // 检测当前版本来源并切换版本
             let toolResult = switchGlobalTool(tool: tool, version: version)
             logs += toolResult.1
-            if !toolResult.0 {
+            
+            let toolSuccess = toolResult.0
+            
+            // 检测切换后的版本来源
+            let newDetection = VersionSwitcherStrategy.detectVersionSource(tool: tool)
+            let toSource = newDetection.source.rawValue
+            
+            // 记录工具切换详情
+            toolDetails[tool] = (
+                from: nil, // 不再记录 fromVersion，简化逻辑
+                to: version,
+                fromSource: nil,
+                toSource: toSource,
+                success: toolSuccess
+            )
+            
+            if !toolSuccess {
                 success = false
             }
         }
@@ -876,7 +894,15 @@ struct ProfilesStore {
         // 5. 应用环境变量
         applyEnvironmentVariables(profile: profile)
         
-        // 6. 发送通知以更新界面
+        // 6. 记录日志
+        SwitchLogManager.shared.logEnvironmentSwitch(
+            profileName: profile.name,
+            success: success,
+            log: logs,
+            details: toolDetails
+        )
+        
+        // 7. 发送通知以更新界面
         NotificationCenter.default.post(name: .environmentSwitched, object: profile)
         
         if success {
@@ -886,16 +912,27 @@ struct ProfilesStore {
         }
     }
     
-    // 切换单个工具的全局版本
+    // 切换单个工具的全局版本（使用统一的版本切换策略）
     private static func switchGlobalTool(tool: String, version: String) -> (Bool, String) {
-        // Java 和 Gradle 通常不是通过 asdf 管理的，它们通过环境变量设置
-        // 这些工具的配置会在 updateShellProfileFiles 中处理
+        // Java 和 Gradle 特殊处理
         if tool == "java" || tool == "gradle" {
+            // 对于 Java，优先使用环境变量
+            if tool == "java" {
+                // Java 通常通过 JAVA_HOME 环境变量管理
+                if let javaHome = ProcessInfo.processInfo.environment["JAVA_HOME"],
+                   !javaHome.isEmpty {
+                    return (true, "ℹ️ [java] 版本将通过 JAVA_HOME 环境变量配置\n")
+                }
+                // 尝试通过 asdf 管理
+                return VersionSwitcherStrategy.switchVersion(tool: "java", version: version, targetSource: VersionSourceType.asdf)
+            }
+            
+            // 对于 Gradle，使用环境变量
             return (true, "ℹ️ [\(tool)] 版本 \(version) 将通过环境变量配置\n")
         }
         
-        // 使用统一的版本管理工具
-        return AsdfVersionManager.setGlobalVersion(tool: tool, version: version, installIfMissing: true)
+        // 使用统一的版本切换策略管理器
+        return VersionSwitcherStrategy.switchVersion(tool: tool, version: version)
     }
     
     // 更新全局 .tool-versions 文件
@@ -965,17 +1002,24 @@ struct ProfilesStore {
             
             // 确保 asdf shims 在 PATH 最前面（优先级最高）
             // 这必须在任何其他 PATH 设置之前执行
-            // 特别重要：移除 Homebrew 的 Ruby/Node/Python 路径，因为 asdf 会管理这些工具
+            // 特别重要：移除系统、Homebrew 和其他版本管理器的 Ruby/Node/Python 路径
             configSection += "# Ensure asdf shims have highest priority in PATH\n"
-            configSection += "# This removes Homebrew's Ruby/Node/Python paths and puts asdf shims first\n"
+            configSection += "# This removes system/Homebrew/other version manager paths for tools managed by asdf\n"
             configSection += "if command -v asdf >/dev/null 2>&1; then\n"
             configSection += "    ASDF_SHIMS=$(asdf where asdf 2>/dev/null)/shims\n"
             configSection += "    ASDF_BIN=$(asdf where asdf 2>/dev/null)/bin\n"
-            configSection += "    # Remove Homebrew's Ruby/Node/Python paths if asdf is managing them\n"
-            configSection += "    # This ensures asdf versions take precedence over Homebrew versions\n"
             configSection += "    if [ -n \"$ASDF_SHIMS\" ] && [ -n \"$ASDF_BIN\" ]; then\n"
-            configSection += "        # Filter out Homebrew paths for tools managed by asdf\n"
-            configSection += "        NEW_PATH=$(echo \"$PATH\" | tr ':' '\\n' | grep -vE '/opt/homebrew/opt/(ruby|node|python)/bin' | grep -vE '/usr/local/opt/(ruby|node|python)/bin' | grep -vE '/opt/homebrew/opt/(ruby|node|python)/sbin' | grep -vE '/usr/local/opt/(ruby|node|python)/sbin' | tr '\\n' ':' | sed 's/:$//' | sed 's/^://')\n"
+            configSection += "        # Filter out conflicting paths for tools managed by asdf\n"
+            configSection += "        # Remove: Homebrew Ruby/Node/Python paths, rbenv paths\n"
+            configSection += "        # Keep system paths (/usr/bin, /bin, /sbin) but ensure asdf shims come first\n"
+            configSection += "        NEW_PATH=$(echo \"$PATH\" | tr ':' '\\n' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/(ruby|node|python)/bin' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/(ruby|node|python)/bin' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/(ruby|node|python)/sbin' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/(ruby|node|python)/sbin' | \\\n"
+            configSection += "            grep -vE '/\\.rbenv/shims' | \\\n"
+            configSection += "            grep -vE '/\\.rbenv/bin' | \\\n"
+            configSection += "            tr '\\n' ':' | sed 's/:$//' | sed 's/^://')\n"
             configSection += "        # Add asdf shims at the very beginning\n"
             configSection += "        export PATH=\"$ASDF_SHIMS:$ASDF_BIN:$NEW_PATH\"\n"
             configSection += "    fi\n"
@@ -998,6 +1042,9 @@ struct ProfilesStore {
                         configSection += "        # Older asdf versions use 'global'\n"
                         configSection += "        asdf global \(plugin) \"\(version)\" 2>/dev/null || true\n"
                         configSection += "    fi\n"
+                        // 强制使用全局版本（覆盖项目目录的 .tool-versions）
+                        // 设置环境变量强制版本
+                        configSection += "    export ASDF_\(plugin.uppercased())_VERSION=\"\(version)\"\n"
                         // 刷新 shims
                         configSection += "    asdf reshim \(plugin) 2>/dev/null || true\n"
                         configSection += "fi\n"
@@ -1230,13 +1277,21 @@ struct ProfilesStore {
         var versions: [String: String] = [:]
         var envVars: [String: String] = [:]
         
-        // Detect Java
-        let javaVersion = Shell.run("java -version 2>&1 | head -1")
+        // Detect Java - try --version first (newer Java), then fallback to -version
+        var javaVersion = Shell.run("java --version 2>&1 | head -1")
+        if javaVersion.code != 0 || javaVersion.out.isEmpty {
+            javaVersion = Shell.run("java -version 2>&1 | head -1")
+        }
         if javaVersion.code == 0, !javaVersion.out.isEmpty {
-            // Extract version like "1.8.0_361" or "11.0.21" from output
+            // Extract version like "1.8.0_361" or "11.0.21" or "openjdk version \"17.0.17\"" from output
             if let match = javaVersion.out.range(of: #""(\d+\.\d+\.\d+[^"]*)"#, options: .regularExpression) {
                 let ver = String(javaVersion.out[match]).replacingOccurrences(of: "\"", with: "")
                 versions["java"] = ver
+            } else if let match = javaVersion.out.range(of: #"version\s+"(\d+\.\d+\.\d+[^"]*)"#, options: .regularExpression) {
+                let ver = String(javaVersion.out[match]).replacingOccurrences(of: "version \"", with: "").replacingOccurrences(of: "\"", with: "")
+                versions["java"] = ver
+            } else if let match = javaVersion.out.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
+                versions["java"] = String(javaVersion.out[match])
             }
         }
         let javaHome = Shell.run("echo $JAVA_HOME")

@@ -250,5 +250,27 @@
 "Warning" = "警告";
 "Environment switch completed with warnings. Some versions may not be set correctly. Please check the logs for details." = "环境切换完成，但有警告。某些版本可能未正确设置。请查看日志了解详情。";
 
-
+// Switch Logs
+"Switch Logs" = "切换日志";
+"Search logs..." = "搜索日志...";
+"All Profiles" = "所有配置";
+"All Tools" = "所有工具";
+"All" = "全部";
+"Success" = "成功";
+"Failed" = "失败";
+"No logs found" = "未找到日志";
+"Clear All Logs" = "清空所有日志";
+"Log Details" = "日志详情";
+"Basic Information" = "基本信息";
+"Profile" = "配置";
+"Tool" = "工具";
+"Status" = "状态";
+"From Version" = "源版本";
+"To Version" = "目标版本";
+"From Source" = "源来源";
+"To Source" = "目标来源";
+"Timestamp" = "时间戳";
+"Error Message" = "错误信息";
+"Detailed Log" = "详细日志";
+"Close" = "关闭";
 

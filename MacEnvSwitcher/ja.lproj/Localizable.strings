@@ -177,4 +177,26 @@
 "Warning" = "警告";
 "Environment switch completed with warnings. Some versions may not be set correctly. Please check the logs for details." = "環境の切り替えが完了しましたが、警告があります。一部のバージョンが正しく設定されていない可能性があります。詳細についてはログを確認してください。";
 
-
+// Switch Logs
+"Switch Logs" = "切り替えログ";
+"Search logs..." = "ログを検索...";
+"All Profiles" = "すべてのプロファイル";
+"All Tools" = "すべてのツール";
+"All" = "すべて";
+"Success" = "成功";
+"Failed" = "失敗";
+"No logs found" = "ログが見つかりません";
+"Clear All Logs" = "すべてのログをクリア";
+"Log Details" = "ログの詳細";
+"Basic Information" = "基本情報";
+"Profile" = "プロファイル";
+"Tool" = "ツール";
+"Status" = "状態";
+"From Version" = "元のバージョン";
+"To Version" = "新しいバージョン";
+"From Source" = "元のソース";
+"To Source" = "新しいソース";
+"Timestamp" = "タイムスタンプ";
+"Error Message" = "エラーメッセージ";
+"Detailed Log" = "詳細ログ";
+"Close" = "閉じる";
