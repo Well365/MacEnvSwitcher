@@ -3174,70 +3174,129 @@ class LanguageManagementViewModel: ObservableObject {
                 }
             }()
             
-            let whichResult = Shell.run("which \(toolName)")
-            guard whichResult.code == 0, !whichResult.out.isEmpty else {
+            // Ruby 特殊处理：即使 which 返回 asdf shim，也尝试检测系统版本
+            if languageId == "ruby" {
+                print("🔍 [DEBUG] 开始检测 Ruby 系统版本路径: version=\(version)")
+                
+                // 方法1: 检查 Homebrew 安装的 Ruby
+                print("🔍 [DEBUG] 方法1: 检查 brew --prefix ruby")
+                let brewPrefixResult = Shell.run("brew --prefix ruby 2>/dev/null")
+                print("🔍 [DEBUG] brew --prefix ruby 结果: code=\(brewPrefixResult.code), out=\(brewPrefixResult.out.trimmingCharacters(in: .whitespacesAndNewlines)), err=\(brewPrefixResult.err)")
+                
+                if brewPrefixResult.code == 0, !brewPrefixResult.out.isEmpty {
+                    let brewPrefix = brewPrefixResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let rubyBin = "\(brewPrefix)/bin/ruby"
+                    print("🔍 [DEBUG] 检查 Ruby 可执行文件: \(rubyBin), 存在=\(FileManager.default.fileExists(atPath: rubyBin))")
+                    
+                    if FileManager.default.fileExists(atPath: rubyBin) {
+                        // 验证版本是否匹配（提取版本号进行比较）
+                        let versionCheck = Shell.run("\(rubyBin) --version 2>&1")
+                        let versionOutput = versionCheck.out
+                        print("🔍 [DEBUG] Ruby 版本检查: \(rubyBin) --version, code=\(versionCheck.code), output=\(versionOutput.trimmingCharacters(in: .whitespacesAndNewlines))")
+                        
+                        // Ruby 版本输出格式: "ruby 3.4.5 (2025-07-16 revision 20cda200d3) +PRISM [arm64-darwin24]"
+                        // 提取版本号部分进行匹配
+                        if versionOutput.contains(version) {
+                            let pathObj = (rubyBin as NSString).deletingLastPathComponent
+                            let rubyHome = (pathObj as NSString).deletingLastPathComponent
+                            print("🔍 [DEBUG] ✅ 通过 Homebrew 找到 Ruby 路径: \(version) -> \(rubyHome)")
+                            return rubyHome
+                        } else {
+                            print("⚠️ [DEBUG] Homebrew Ruby 版本不匹配: 期望 \(version), 实际输出: \(versionOutput.trimmingCharacters(in: .whitespacesAndNewlines))")
+                        }
+                    }
+                }
+                
+                // 方法2: 检查常见的 Homebrew Ruby 路径
+                print("🔍 [DEBUG] 方法2: 检查常见路径")
+                let commonRubyPaths = [
+                    "/opt/homebrew/opt/ruby/bin/ruby",
+                    "/usr/local/opt/ruby/bin/ruby"
+                ]
+                for rubyPath in commonRubyPaths {
+                    let exists = FileManager.default.fileExists(atPath: rubyPath)
+                    print("🔍 [DEBUG] 检查路径: \(rubyPath), 存在=\(exists)")
+                    
+                    if exists {
+                        let versionCheck = Shell.run("\(rubyPath) --version 2>&1")
+                        let versionOutput = versionCheck.out
+                        print("🔍 [DEBUG] Ruby 版本检查: \(rubyPath) --version, code=\(versionCheck.code), output=\(versionOutput.trimmingCharacters(in: .whitespacesAndNewlines))")
+                        
+                        // Ruby 版本输出格式: "ruby 3.4.5 (2025-07-16 revision 20cda200d3) +PRISM [arm64-darwin24]"
+                        if versionOutput.contains(version) {
+                            let pathObj = (rubyPath as NSString).deletingLastPathComponent
+                            let rubyHome = (pathObj as NSString).deletingLastPathComponent
+                            print("🔍 [DEBUG] ✅ 通过常见路径找到 Ruby: \(version) -> \(rubyHome)")
+                            return rubyHome
+                        } else {
+                            print("⚠️ [DEBUG] 常见路径 Ruby 版本不匹配: 路径=\(rubyPath), 期望=\(version), 实际=\(versionOutput.trimmingCharacters(in: .whitespacesAndNewlines))")
+                        }
+                    }
+                }
+                
+                // 方法3: 如果没有找到匹配的版本，尝试使用 Homebrew Ruby（即使版本不完全匹配）
+                print("🔍 [DEBUG] 方法3: 尝试使用 Homebrew Ruby（即使版本不完全匹配）")
+                if brewPrefixResult.code == 0, !brewPrefixResult.out.isEmpty {
+                    let brewPrefix = brewPrefixResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let pathObj = (brewPrefix as NSString).deletingLastPathComponent
+                    print("⚠️ [DEBUG] ✅ 使用 Homebrew Ruby 路径（版本可能不完全匹配）: \(pathObj)")
+                    return pathObj
+                }
+                
+                print("⚠️ [DEBUG] ❌ 无法找到 Ruby \(version) 的安装路径")
                 return nil
             }
             
-            let executablePath = whichResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+            // 如果 which 返回 asdf shim，尝试其他方法检测系统版本路径
+            var executablePath: String? = nil
             
-            // 跳过 asdf shims，如果是 asdf shim 则需要从其他方式检测
-            if executablePath.contains("/.asdf/shims/") {
-                print("⚠️ [DEBUG] which \(toolName) 返回 asdf shim，可能需要手动指定系统版本路径")
-                // 对于系统版本，不应该通过 asdf shim，返回 nil 让用户知道
+            // 首先尝试 which 命令
+            let whichResult = Shell.run("which \(toolName)")
+            if whichResult.code == 0, !whichResult.out.isEmpty {
+                let path = whichResult.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !path.contains("/.asdf/shims/") {
+                    executablePath = path
+                }
+            }
+            
+            // 如果 which 返回 asdf shim，尝试其他检测方法
+            if executablePath == nil {
+                // 对于其他语言，尝试检查常见的系统路径
+                let commonPaths: [String] = {
+                    switch languageId {
+                    case "nodejs":
+                        return ["/opt/homebrew/opt/node/bin/node", "/usr/local/opt/node/bin/node", "/usr/local/bin/node"]
+                    case "python":
+                        return ["/opt/homebrew/opt/python/bin/python3", "/usr/local/opt/python/bin/python3", "/usr/bin/python3"]
+                    case "golang":
+                        return ["/opt/homebrew/opt/go/bin/go", "/usr/local/opt/go/bin/go", "/usr/local/go/bin/go"]
+                    default:
+                        return []
+                    }
+                }()
+                
+                for path in commonPaths {
+                    if FileManager.default.fileExists(atPath: path) {
+                        executablePath = path
+                        break
+                    }
+                }
+            }
+            
+            guard let path = executablePath else {
+                print("⚠️ [DEBUG] 无法找到 \(toolName) 的可执行文件路径")
                 return nil
             }
             
             switch languageId {
-            case "golang":
-                // Go 安装路径通常是可执行文件的父目录的父目录
-                if executablePath.hasSuffix("/bin/go") {
-                    let path = executablePath as NSString
-                    let binPath = path.deletingLastPathComponent
-                    let goRoot = (binPath as NSString).deletingLastPathComponent
-                    return goRoot
-                }
-                return nil
-                
-            case "python":
-                // Python 安装路径是可执行文件的父目录的父目录
-                if executablePath.contains("/bin/python") {
-                    let path = executablePath as NSString
-                    let binPath = path.deletingLastPathComponent
-                    let pythonPath = (binPath as NSString).deletingLastPathComponent
-                    return pythonPath
-                }
-                return nil
-                
-            case "rust":
-                // Rust 安装路径通常是 ~/.rustup 或 /usr/local
-                if executablePath.contains("/.cargo/bin/") {
-                    let path = executablePath as NSString
-                    let binPath = path.deletingLastPathComponent
-                    let rustPath = (binPath as NSString).deletingLastPathComponent
-                    return rustPath
-                }
-                return nil
-                
-            case "ruby":
-                // Ruby 系统安装路径
-                if executablePath.contains("/usr/bin/ruby") || executablePath.contains("/usr/local/bin/ruby") {
-                    return "/usr"
-                } else if executablePath.contains("/opt/homebrew") {
-                    let path = executablePath as NSString
-                    let binPath = path.deletingLastPathComponent
-                    let rubyPath = (binPath as NSString).deletingLastPathComponent
-                    return rubyPath
-                }
-                return nil
                 
             case "php":
                 // PHP 安装路径
-                if executablePath.contains("/usr/bin/php") {
+                if path.contains("/usr/bin/php") {
                     return "/usr"
-                } else if executablePath.contains("/opt/homebrew") {
-                    let path = executablePath as NSString
-                    let binPath = path.deletingLastPathComponent
+                } else if path.contains("/opt/homebrew") {
+                    let pathObj = path as NSString
+                    let binPath = pathObj.deletingLastPathComponent
                     let phpPath = (binPath as NSString).deletingLastPathComponent
                     return phpPath
                 }
@@ -3245,11 +3304,11 @@ class LanguageManagementViewModel: ObservableObject {
                 
             case "nodejs":
                 // Node.js 系统安装路径
-                if executablePath.contains("/usr/local/bin/node") {
+                if path.contains("/usr/local/bin/node") {
                     return "/usr/local"
-                } else if executablePath.contains("/opt/homebrew") {
-                    let path = executablePath as NSString
-                    let binPath = path.deletingLastPathComponent
+                } else if path.contains("/opt/homebrew") {
+                    let pathObj = path as NSString
+                    let binPath = pathObj.deletingLastPathComponent
                     let nodePath = (binPath as NSString).deletingLastPathComponent
                     return nodePath
                 }
@@ -3257,11 +3316,11 @@ class LanguageManagementViewModel: ObservableObject {
                 
             case "gradle":
                 // Gradle 系统安装路径
-                if executablePath.contains("/usr/local/bin/gradle") {
+                if path.contains("/usr/local/bin/gradle") {
                     return "/usr/local"
-                } else if executablePath.contains("/opt/homebrew") {
-                    let path = executablePath as NSString
-                    let binPath = path.deletingLastPathComponent
+                } else if path.contains("/opt/homebrew") {
+                    let pathObj = path as NSString
+                    let binPath = pathObj.deletingLastPathComponent
                     let gradlePath = (binPath as NSString).deletingLastPathComponent
                     return gradlePath
                 }
@@ -3269,8 +3328,8 @@ class LanguageManagementViewModel: ObservableObject {
                 
             default:
                 // 默认返回可执行文件的 bin 目录的父目录
-                let path = executablePath as NSString
-                let binPath = path.deletingLastPathComponent
+                let pathObj = path as NSString
+                let binPath = pathObj.deletingLastPathComponent
                 return (binPath as NSString).deletingLastPathComponent
             }
         }

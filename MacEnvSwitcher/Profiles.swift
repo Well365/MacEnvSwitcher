@@ -960,7 +960,7 @@ struct ProfilesStore {
     
     // 更新 shell 配置文件
     private static func updateShellProfileFiles(profile: EnvironmentProfile) {
-        let shellConfigFiles = ["~/.zshrc", "~/.bash_profile", "~/.bashrc"]
+        let shellConfigFiles = ["~/.zshrc", "~/.bash_profile", "~/.bashrc", "~/.zprofile"]
         
         for configFile in shellConfigFiles {
             let expandedPath = NSString(string: configFile).expandingTildeInPath
@@ -978,15 +978,94 @@ struct ProfilesStore {
             let marker = "# MacEnvSwitcher Environment Configuration"
             let endMarker = "# End MacEnvSwitcher Configuration"
             
-            // 移除旧的配置段
-            if let startRange = content.range(of: marker),
-               let endRange = content.range(of: endMarker) {
-                let rangeToRemove = startRange.lowerBound..<endRange.upperBound
-                content.removeSubrange(rangeToRemove)
+            // 使用正则表达式移除所有旧的配置段（可能有多个）
+            // 确保移除所有匹配的配置块，而不仅仅是第一个
+            var nsString = content as NSString
+            let pattern = "\(marker).*?\(endMarker)"
+            
+            // 使用正则表达式匹配所有配置块（包括换行符）
+            if let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) {
+                let matches = regex.matches(in: content, options: [], range: NSRange(location: 0, length: nsString.length))
+                // 从后往前删除，避免索引变化问题
+                for match in matches.reversed() {
+                    content = nsString.replacingCharacters(in: match.range, with: "")
+                    // 更新 nsString 引用，因为 content 已改变
+                    nsString = content as NSString
+                }
+                
+                // 移除配置块前后的多余空行（使用正则表达式）
+                if let cleanupRegex = try? NSRegularExpression(pattern: "\n\n\n+", options: []) {
+                    let cleanedContent = cleanupRegex.stringByReplacingMatches(in: content, options: [], range: NSRange(location: 0, length: nsString.length), withTemplate: "\n\n")
+                    content = cleanedContent
+                }
                 content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                // 如果正则表达式失败，回退到简单的字符串匹配
+                // 循环删除，直到没有更多匹配项
+                while true {
+                    if let startRange = content.range(of: marker),
+                       let endRange = content.range(of: endMarker, range: startRange.upperBound..<content.endIndex) {
+                        let rangeToRemove = startRange.lowerBound..<endRange.upperBound
+                        content.removeSubrange(rangeToRemove)
+                        content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+                    } else {
+                        break
+                    }
+                }
             }
             
-            // 添加新的配置段
+            // 移除 .zshrc 中可能存在的其他 Ruby/Node/Python PATH 设置（在配置块之外）
+            // 这些设置可能在配置文件的其他位置
+            let pathPatterns = [
+                "export PATH=.*opt/homebrew/opt/ruby",
+                "export PATH=.*usr/local/opt/ruby",
+                "export PATH=.*\\.rbenv",
+                "export PATH=.*\\.pyenv",
+                "export PATH=.*\\.nvm"
+            ]
+            for pattern in pathPatterns {
+                let regex = try? NSRegularExpression(pattern: pattern, options: [])
+                if let regex = regex {
+                    let nsString = content as NSString
+                    let matches = regex.matches(in: content, options: [], range: NSRange(location: 0, length: nsString.length))
+                    for match in matches.reversed() {
+                        let lineRange = nsString.lineRange(for: match.range)
+                        let line = nsString.substring(with: lineRange)
+                        // 只移除包含 ruby/node/python/rbenv/pyenv/nvm 的 PATH 设置
+                        if line.contains("PATH") && (
+                            line.contains("ruby") || line.contains("node") || 
+                            line.contains("python") || line.contains("rbenv") || 
+                            line.contains("pyenv") || line.contains("nvm")
+                        ) {
+                            content = (content as NSString).replacingCharacters(in: lineRange, with: "")
+                        }
+                    }
+                }
+            }
+            
+            // 对于 .zprofile，特别处理：移除包含 /opt/homebrew/opt/ruby/bin 的 PATH 设置
+            if expandedPath.contains(".zprofile") {
+                // 移除所有包含 /opt/homebrew/opt/ruby/bin 或 /usr/local/opt/ruby/bin 的行
+                let lines = content.components(separatedBy: .newlines)
+                content = lines.filter { line in
+                    // 如果这行包含 PATH 设置且包含冲突路径，则移除
+                    if line.contains("PATH") && (
+                        line.contains("/opt/homebrew/opt/ruby/bin") ||
+                        line.contains("/usr/local/opt/ruby/bin") ||
+                        line.contains("/opt/homebrew/opt/node/bin") ||
+                        line.contains("/usr/local/opt/node/bin") ||
+                        line.contains("/opt/homebrew/opt/python/bin") ||
+                        line.contains("/usr/local/opt/python/bin")
+                    ) {
+                        return false
+                    }
+                    return true
+                }.joined(separator: "\n")
+            }
+            
+            content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // 添加新的配置段（确保在文件末尾）
             var configSection = "\n\n\(marker)\n"
             configSection += "# Profile: \(profile.name)\n"
             configSection += "# Last updated: \(Date())\n\n"
@@ -1000,6 +1079,40 @@ struct ProfilesStore {
                 configSection += "fi\n\n"
             }
             
+            // 在配置块的最开始就强制清理 PATH
+            // 这必须在任何其他 PATH 设置之前执行，包括 asdf 初始化可能添加的路径
+            configSection += "# Force PATH cleanup at the very beginning - remove conflicting paths\n"
+            configSection += "# This ensures asdf-managed tools take precedence over Homebrew/system versions\n"
+            configSection += "if command -v asdf >/dev/null 2>&1; then\n"
+            configSection += "    ASDF_SHIMS=$(asdf where asdf 2>/dev/null)/shims\n"
+            configSection += "    ASDF_BIN=$(asdf where asdf 2>/dev/null)/bin\n"
+            configSection += "    if [ -n \"$ASDF_SHIMS\" ] && [ -n \"$ASDF_BIN\" ]; then\n"
+            configSection += "        # Remove all conflicting paths for tools managed by asdf\n"
+            configSection += "        TEMP_PATH=$(echo \"$PATH\" | tr ':' '\\n' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/(ruby|node|python)[^/]*/bin' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/(ruby|node|python)[^/]*/bin' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/(ruby|node|python)[^/]*/sbin' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/(ruby|node|python)[^/]*/sbin' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/ruby' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/ruby' | \\\n"
+            configSection += "            grep -vE '/usr/bin/ruby' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/bin.*ruby' | \\\n"
+            configSection += "            grep -vE '/usr/local/bin.*ruby' | \\\n"
+            configSection += "            grep -vE '/\\.rbenv/shims' | \\\n"
+            configSection += "            grep -vE '/\\.rbenv/bin' | \\\n"
+            configSection += "            grep -vE '/\\.pyenv/shims' | \\\n"
+            configSection += "            grep -vE '/\\.pyenv/bin' | \\\n"
+            configSection += "            grep -vE '/\\.nvm' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/ruby/bin' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/ruby/bin' | \\\n"
+            configSection += "            tr '\\n' ':' | sed 's/:$//' | sed 's/^://')\n"
+            configSection += "        # Set PATH with asdf shims first\n"
+            configSection += "        export PATH=\"$ASDF_SHIMS:$ASDF_BIN:$TEMP_PATH\"\n"
+            configSection += "        # Clear shell command cache to force re-lookup\n"
+            configSection += "        hash -r 2>/dev/null || true\n"
+            configSection += "    fi\n"
+            configSection += "fi\n\n"
+            
             // 确保 asdf shims 在 PATH 最前面（优先级最高）
             // 这必须在任何其他 PATH 设置之前执行
             // 特别重要：移除系统、Homebrew 和其他版本管理器的 Ruby/Node/Python 路径
@@ -1010,18 +1123,30 @@ struct ProfilesStore {
             configSection += "    ASDF_BIN=$(asdf where asdf 2>/dev/null)/bin\n"
             configSection += "    if [ -n \"$ASDF_SHIMS\" ] && [ -n \"$ASDF_BIN\" ]; then\n"
             configSection += "        # Filter out conflicting paths for tools managed by asdf\n"
-            configSection += "        # Remove: Homebrew Ruby/Node/Python paths, rbenv paths\n"
-            configSection += "        # Keep system paths (/usr/bin, /bin, /sbin) but ensure asdf shims come first\n"
+            configSection += "        # Remove: Homebrew Ruby/Node/Python paths, rbenv paths, system ruby/node/python\n"
+            configSection += "        # Note: We keep /usr/bin and /bin for system commands, but remove specific tool paths\n"
             configSection += "        NEW_PATH=$(echo \"$PATH\" | tr ':' '\\n' | \\\n"
-            configSection += "            grep -vE '/opt/homebrew/opt/(ruby|node|python)/bin' | \\\n"
-            configSection += "            grep -vE '/usr/local/opt/(ruby|node|python)/bin' | \\\n"
-            configSection += "            grep -vE '/opt/homebrew/opt/(ruby|node|python)/sbin' | \\\n"
-            configSection += "            grep -vE '/usr/local/opt/(ruby|node|python)/sbin' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/(ruby|node|python)[^/]*/bin' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/(ruby|node|python)[^/]*/bin' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/(ruby|node|python)[^/]*/sbin' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/(ruby|node|python)[^/]*/sbin' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/ruby' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/ruby' | \\\n"
+            configSection += "            grep -vE '/usr/bin/ruby' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/bin.*ruby' | \\\n"
+            configSection += "            grep -vE '/usr/local/bin.*ruby' | \\\n"
             configSection += "            grep -vE '/\\.rbenv/shims' | \\\n"
             configSection += "            grep -vE '/\\.rbenv/bin' | \\\n"
+            configSection += "            grep -vE '/\\.pyenv/shims' | \\\n"
+            configSection += "            grep -vE '/\\.pyenv/bin' | \\\n"
+            configSection += "            grep -vE '/\\.nvm' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/ruby/bin' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/ruby/bin' | \\\n"
             configSection += "            tr '\\n' ':' | sed 's/:$//' | sed 's/^://')\n"
             configSection += "        # Add asdf shims at the very beginning\n"
             configSection += "        export PATH=\"$ASDF_SHIMS:$ASDF_BIN:$NEW_PATH\"\n"
+            configSection += "        # Clear shell command cache to force re-lookup\n"
+            configSection += "        hash -r 2>/dev/null || true\n"
             configSection += "    fi\n"
             configSection += "fi\n\n"
             
@@ -1052,6 +1177,83 @@ struct ProfilesStore {
                 }
                 configSection += "\n"
             }
+            
+            // 刷新 asdf shims 以确保命令可用（在执行 reshim 后再设置环境变量）
+            configSection += "\n# Refresh asdf shims\n"
+            configSection += "if command -v asdf >/dev/null 2>&1; then\n"
+            configSection += "    asdf reshim 2>/dev/null || true\n"
+            configSection += "    # Clear shell command cache to force re-lookup\n"
+            configSection += "    hash -r 2>/dev/null || true\n"
+            configSection += "fi\n\n"
+            
+            // 为 asdf 管理的工具设置 *_HOME 环境变量并添加到 PATH
+            // 工具名称到环境变量名称的映射
+            let toolHomeMapping: [String: String] = [
+                "ruby": "RUBY_HOME",
+                "python": "PYTHON_HOME",
+                "python3": "PYTHON_HOME",
+                "nodejs": "NODE_HOME",
+                "node": "NODE_HOME",
+                "golang": "GO_HOME",
+                "go": "GO_HOME",
+                "rust": "RUST_HOME",
+                "java": "JAVA_HOME",
+                "gradle": "GRADLE_HOME",
+                "php": "PHP_HOME",
+                "elixir": "ELIXIR_HOME",
+                "erlang": "ERLANG_HOME",
+                "terraform": "TERRAFORM_HOME",
+                "kubectl": "KUBECTL_HOME"
+            ]
+            
+            configSection += "# Set *_HOME environment variables for asdf-managed tools\n"
+            for (plugin, version) in profile.versions.sorted(by: { $0.key < $1.key }) {
+                // 跳过已经在环境变量中特殊处理的工具
+                if plugin == "java" || plugin == "gradle" {
+                    continue
+                }
+                
+                // 获取工具对应的环境变量名称
+                let toolName = plugin.lowercased()
+                let homeVarName = toolHomeMapping[toolName] ?? "\(plugin.uppercased())_HOME"
+                
+                // 检查是否已经在环境变量中设置了
+                if profile.environmentVars.keys.contains(homeVarName) {
+                    continue
+                }
+                
+                configSection += "# Set \(homeVarName) for \(plugin) \(version)\n"
+                configSection += "if command -v asdf >/dev/null 2>&1; then\n"
+                // 使用 asdf where 获取安装路径
+                configSection += "    \(homeVarName)_ASDF=$(asdf where \(plugin) 2>/dev/null)\n"
+                configSection += "    if [ -n \"$\(homeVarName)_ASDF\" ] && [ -d \"$\(homeVarName)_ASDF\" ]; then\n"
+                configSection += "        export \(homeVarName)=\"$\(homeVarName)_ASDF\"\n"
+                // 将工具的 bin 目录添加到 PATH，防止重复添加
+                // 使用 shell 参数替换来移除已存在的路径，然后添加到前面
+                configSection += "        # Remove existing path if present, then add to front\n"
+                configSection += "        CLEAN_PATH=$(echo \"$PATH\" | tr ':' '\\n' | grep -v \"$\(homeVarName)/bin\" | tr '\\n' ':' | sed 's/:$//')\n"
+                configSection += "        export PATH=\"$\(homeVarName)/bin:$CLEAN_PATH\"\n"
+                configSection += "    fi\n"
+                configSection += "fi\n"
+            }
+            configSection += "\n"
+            
+            // 为 Ruby/Node/Python 添加强制命令重定向，确保使用 asdf 版本
+            // 这可以覆盖 shell 缓存的命令路径
+            let managedTools = ["ruby", "node", "python", "python3"]
+            for tool in managedTools {
+                if profile.versions.keys.contains(where: { $0.lowercased() == tool.lowercased() }) {
+                    configSection += "# Force \(tool) to use asdf version (override shell cache)\n"
+                    configSection += "hash -r 2>/dev/null || true\n"  // 清除命令缓存
+                    configSection += "unset -f \(tool) 2>/dev/null || true\n"  // 清除可能的函数定义
+                    configSection += "# Ensure \(tool) points to asdf shim\n"
+                    configSection += "if command -v asdf >/dev/null 2>&1 && [ -f \"$ASDF_SHIMS/\(tool)\" ]; then\n"
+                    configSection += "    alias \(tool)=\"$ASDF_SHIMS/\(tool)\"\n"
+                    configSection += "fi\n"
+                }
+            }
+            
+            configSection += "\n"
             
             // 添加 Java 特殊处理（优先使用环境变量中指定的 JAVA_HOME）
             if let javaHome = profile.environmentVars["JAVA_HOME"] {
@@ -1085,14 +1287,45 @@ struct ProfilesStore {
                 }
             }
             
-            // 刷新 asdf shims 以确保命令可用
-            configSection += "\n# Refresh asdf shims\n"
+            // 在所有 PATH 修改之后，再次确保 asdf shims 在最前面，并移除冲突路径
+            // 这很重要，因为 Java/Gradle 的 PATH 设置可能会添加新的路径
+            configSection += "\n# Final PATH cleanup - ensure asdf shims are first and remove conflicting paths\n"
             configSection += "if command -v asdf >/dev/null 2>&1; then\n"
-            configSection += "    asdf reshim 2>/dev/null || true\n"
+            configSection += "    ASDF_SHIMS=$(asdf where asdf 2>/dev/null)/shims\n"
+            configSection += "    ASDF_BIN=$(asdf where asdf 2>/dev/null)/bin\n"
+            configSection += "    if [ -n \"$ASDF_SHIMS\" ] && [ -n \"$ASDF_BIN\" ]; then\n"
+            configSection += "        # Filter out conflicting paths\n"
+            configSection += "        CLEAN_PATH=$(echo \"$PATH\" | tr ':' '\\n' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/(ruby|node|python)[^/]*/bin' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/(ruby|node|python)[^/]*/bin' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/(ruby|node|python)[^/]*/sbin' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/(ruby|node|python)[^/]*/sbin' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/ruby' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/ruby' | \\\n"
+            configSection += "            grep -vE '/usr/bin/ruby' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/bin.*ruby' | \\\n"
+            configSection += "            grep -vE '/usr/local/bin.*ruby' | \\\n"
+            configSection += "            grep -vE '/\\.rbenv/shims' | \\\n"
+            configSection += "            grep -vE '/\\.rbenv/bin' | \\\n"
+            configSection += "            grep -vE '/\\.pyenv/shims' | \\\n"
+            configSection += "            grep -vE '/\\.pyenv/bin' | \\\n"
+            configSection += "            grep -vE '/\\.nvm' | \\\n"
+            configSection += "            grep -vE '/opt/homebrew/opt/ruby/bin' | \\\n"
+            configSection += "            grep -vE '/usr/local/opt/ruby/bin' | \\\n"
+            configSection += "            tr '\\n' ':' | sed 's/:$//' | sed 's/^://')\n"
+            configSection += "        # Ensure asdf shims are at the very beginning\n"
+            configSection += "        export PATH=\"$ASDF_SHIMS:$ASDF_BIN:$CLEAN_PATH\"\n"
+            configSection += "        # Clear shell command cache to force re-lookup\n"
+            configSection += "        hash -r 2>/dev/null || true\n"
+            configSection += "    fi\n"
             configSection += "fi\n"
             
             configSection += "\n\(endMarker)\n"
             
+            // 确保配置块添加到文件末尾
+            if !content.isEmpty && !content.hasSuffix("\n") {
+                content += "\n"
+            }
             content += configSection
             
             // 写回文件
