@@ -28,9 +28,9 @@
 		AJ /* ToolVersionsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BH /* ToolVersionsManager.swift */; };
 		AK /* ShellConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BI /* ShellConfigManager.swift */; };
 		AL /* LanguageDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = BJ /* LanguageDetector.swift */; };
-		AO /* SwitchLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BN /* SwitchLogView.swift */; };
-		AN /* SwitchLogManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BM /* SwitchLogManager.swift */; };
 		AM /* VersionSwitcherStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = BL /* VersionSwitcherStrategy.swift */; };
+		AN /* SwitchLogManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BM /* SwitchLogManager.swift */; };
+		AO /* SwitchLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BN /* SwitchLogView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,9 +53,9 @@
 		BH /* ToolVersionsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolVersionsManager.swift; sourceTree = "<group>"; };
 		BI /* ShellConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellConfigManager.swift; sourceTree = "<group>"; };
 		BJ /* LanguageDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageDetector.swift; sourceTree = "<group>"; };
-		BN /* SwitchLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchLogView.swift; sourceTree = "<group>"; };
-		BM /* SwitchLogManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchLogManager.swift; sourceTree = "<group>"; };
 		BL /* VersionSwitcherStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionSwitcherStrategy.swift; sourceTree = "<group>"; };
+		BM /* SwitchLogManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchLogManager.swift; sourceTree = "<group>"; };
+		BN /* SwitchLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchLogView.swift; sourceTree = "<group>"; };
 		BP /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C2 /* LanguageManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageManagementView.swift; sourceTree = "<group>"; };
 		L1 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -90,7 +90,6 @@
 				B3 /* ContentView.swift */,
 				BF /* SetupWizardView.swift */,
 				C2 /* LanguageManagementView.swift */,
-				BG /* softConfig.swift */,
 				BH /* ToolVersionsManager.swift */,
 				BI /* ShellConfigManager.swift */,
 				BJ /* LanguageDetector.swift */,
@@ -271,6 +270,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = X855Y85A4V;
 				INFOPLIST_FILE = MacEnvSwitcher/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
@@ -296,6 +296,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = X855Y85A4V;
 				INFOPLIST_FILE = MacEnvSwitcher/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
